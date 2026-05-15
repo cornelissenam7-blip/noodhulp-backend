@@ -72,6 +72,8 @@ app.get("/", (_req, res) => {
       "GET /",
       "GET /health",
       "POST /api/pay",
+      "POST /api/sos",
+      "POST /api/subscribe",
       "POST /mollie/create-payment",
       "GET /mollie/return",
       "POST /mollie/webhook",
@@ -97,6 +99,24 @@ app.post("/api/sos", (req, res) => {
   res.json({ ok: true, id: payload.id });
 });
 
+app.post("/api/subscribe", (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 120);
+  const source = String(req.body?.source || "unknown").trim().slice(0, 40);
+
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ ok: false, error: "Invalid email" });
+  }
+
+  console.log("📩 Update-inschrijving:", {
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    email,
+    source,
+  });
+
+  res.json({ ok: true });
+});
+
 // ==== PLANS voor /api/pay ====
 const PLANS = {
   oneoff7:  { value: "7.00", currency: "EUR", description: "GuardTap Basis toegang - eenmalig EUR 7" },
@@ -110,6 +130,7 @@ app.post("/api/pay", async (req, res) => {
 
     const { plan } = req.body || {};
     const referrer = String(req.body?.referrer || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
+    const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 120);
     console.log("[/api/pay] body:", req.body, "BASE_URL:", BASE_URL);
 
     const cfg = PLANS[plan];
@@ -122,7 +143,7 @@ app.post("/api/pay", async (req, res) => {
       amount: { currency: cfg.currency, value: cfg.value },
       description: cfg.description,
       redirectUrl: getFrontendReturnUrl(plan),
-      metadata: { plan, referrer: referrer || null },
+      metadata: { plan, referrer: referrer || null, email: email || null },
     }, "/api/webhook");
 
     const payment = await mollie.payments.create(paymentConfig);
