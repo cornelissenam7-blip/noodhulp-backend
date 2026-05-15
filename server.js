@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;  // gebruikt voor redirect & webhook
 const FRONTEND_URL = process.env.FRONTEND_URL || `http://localhost:${PORT}`;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
-const MOLLIE_API_KEY = process.env.MOLLIE_API_KEY || "";
+const MOLLIE_API_KEY = (process.env.MOLLIE_API_KEY || "").trim();
 
 console.log("Mollie key loaded?", MOLLIE_API_KEY ? "yes" : "no");
 console.log("BASE_URL:", BASE_URL, "PORT:", PORT);
@@ -26,7 +26,15 @@ if (!MOLLIE_API_KEY) {
 const mollie = MOLLIE_API_KEY ? createMollieClient({ apiKey: MOLLIE_API_KEY }) : null;
 
 const requireMollie = (res) => {
-  if (mollie) return true;
+  if (mollie && (MOLLIE_API_KEY.startsWith("test_") || MOLLIE_API_KEY.startsWith("live_"))) return true;
+  if (mollie) {
+    res.status(503).json({
+      ok: false,
+      error: "Mollie key is ongeldig ingesteld",
+      detail: "De MOLLIE_API_KEY in Render moet exact beginnen met test_ of live_, zonder Bearer, zonder MOLLIE_API_KEY= en zonder spaties.",
+    });
+    return false;
+  }
   res.status(503).json({ ok: false, error: "Mollie is not configured" });
   return false;
 };
