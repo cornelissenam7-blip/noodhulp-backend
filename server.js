@@ -82,6 +82,7 @@ app.get("/", (_req, res) => {
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
+      "POST /api/subscription-webhook",
       "POST /mollie/create-payment",
       "GET /mollie/return",
       "POST /mollie/webhook",
@@ -131,6 +132,77 @@ const PLANS = {
   premium5: { value: "5.00", currency: "EUR", description: "GuardTap Premium toegang - EUR 5 per maand" },
 };
 
+async function createPremiumFirstPayment({ referrer, email }) {
+  const customer = await mollie.customers.create({
+    email: email || undefined,
+    name: email || "GuardTap premium klant",
+    locale: "nl_NL",
+    metadata: {
+      plan: "premium5",
+      referrer: referrer || null,
+      source: "guardtap",
+    },
+  });
+
+  const paymentConfig = addWebhookUrlWhenPublic({
+    amount: { currency: "EUR", value: "5.00" },
+    description: "GuardTap Premium - eerste maand",
+    redirectUrl: getFrontendReturnUrl("premium5"),
+    sequenceType: "first",
+    metadata: {
+      plan: "premium5",
+      referrer: referrer || null,
+      email: email || null,
+      customerId: customer.id,
+      createsSubscription: true,
+    },
+  }, "/api/webhook");
+
+  return mollie.customerPayments.create({
+    customerId: customer.id,
+    ...paymentConfig,
+  });
+}
+
+async function createPremiumSubscriptionAfterFirstPayment(payment) {
+  const customerId = payment.metadata?.customerId;
+  if (!customerId) {
+    console.warn("[subscription] Geen customerId op premiumbetaling:", payment.id);
+    return null;
+  }
+
+  const subscriptionConfig = addWebhookUrlWhenPublic({
+    customerId,
+    amount: { currency: "EUR", value: "5.00" },
+    interval: "1 month",
+    description: "GuardTap Premium - maandelijks",
+    metadata: {
+      plan: "premium5",
+      email: payment.metadata?.email || null,
+      referrer: payment.metadata?.referrer || null,
+      firstPaymentId: payment.id,
+    },
+    idempotencyKey: `guardtap-premium-${payment.id}`,
+  }, "/api/subscription-webhook");
+
+  const subscription = await mollie.customerSubscriptions.create(subscriptionConfig);
+  console.log("✅ Premium abonnement aangemaakt:", subscription.id, "customer:", customerId);
+  return subscription;
+}
+
+async function handlePaidPayment(payment, label) {
+  console.log("🧾 Payment status:", payment.id, payment.status, "plan:", payment.metadata?.plan);
+
+  if (payment.status !== "paid") return;
+  if (payment.metadata?.plan !== "premium5" || !payment.metadata?.createsSubscription) return;
+
+  try {
+    await createPremiumSubscriptionAfterFirstPayment(payment);
+  } catch (error) {
+    console.error(`[${label}] Premium abonnement aanmaken mislukt:`, error?.response?.body || error);
+  }
+}
+
 // ==== /api/pay — twee knoppen ($7 / $5) ====
 app.post("/api/pay", async (req, res) => {
   try {
@@ -145,6 +217,12 @@ app.post("/api/pay", async (req, res) => {
     if (!cfg) {
       console.error("[/api/pay] Unknown plan:", plan, "expected:", Object.keys(PLANS));
       return res.status(400).json({ error: "Unknown plan", expected: Object.keys(PLANS) });
+    }
+
+    if (plan === "premium5") {
+      const payment = await createPremiumFirstPayment({ referrer, email });
+      console.log("✅ Created premium first payment:", payment.id, payment.getCheckoutUrl());
+      return res.json({ id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
     }
 
     const paymentConfig = addWebhookUrlWhenPublic({
@@ -227,12 +305,28 @@ app.post("/api/webhook", async (req, res) => {
       return res.status(200).end();
     }
     const p = await mollie.payments.get(paymentId);
-    console.log("🧾 Payment status:", p.id, p.status, "plan:", p.metadata?.plan);
-    // TODO: wanneer p.status === "paid": activeer premium in je DB
+    await handlePaidPayment(p, "/api/webhook");
     return res.status(200).end(); // Mollie verwacht 200
   } catch (e) {
     console.error("[/api/webhook] ERROR:", e?.response?.body || e);
     return res.status(200).end(); // alsnog 200: geen eindeloze retries
+  }
+});
+
+app.post("/api/subscription-webhook", async (req, res) => {
+  try {
+    if (!mollie) return res.status(200).end();
+
+    console.log("[/api/subscription-webhook] HIT", new Date().toISOString(), "body:", req.body, "query:", req.query);
+    const paymentId = req.body?.id || req.query?.id;
+    if (!paymentId) return res.status(200).end();
+
+    const p = await mollie.payments.get(paymentId);
+    console.log("🔁 Premium maandbetaling:", p.id, p.status, "subscription:", p.subscriptionId || p.metadata?.subscriptionId);
+    return res.status(200).end();
+  } catch (e) {
+    console.error("[/api/subscription-webhook] ERROR:", e?.response?.body || e);
+    return res.status(200).end();
   }
 });
 
@@ -245,7 +339,7 @@ app.post("/mollie/webhook", async (req, res) => {
     const paymentId = req.body?.id || req.query?.id;
     if (!paymentId) return res.status(200).end();
     const p = await mollie.payments.get(paymentId);
-    console.log("🧾 Payment status:", p.id, p.status, "meta:", p.metadata);
+    await handlePaidPayment(p, "/mollie/webhook");
     return res.status(200).end();
   } catch (e) {
     console.error("[/mollie/webhook] ERROR:", e?.response?.body || e);
