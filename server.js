@@ -14,12 +14,19 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;  // gebruik
 const FRONTEND_URL = process.env.FRONTEND_URL || `http://localhost:${PORT}`;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 const MOLLIE_API_KEY = (process.env.MOLLIE_API_KEY || "").trim();
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
 console.log("Mollie key loaded?", MOLLIE_API_KEY ? "yes" : "no");
 console.log("BASE_URL:", BASE_URL, "PORT:", PORT);
+console.log("Supabase loaded?", SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY ? "yes" : "no");
 
 if (!MOLLIE_API_KEY) {
   console.warn("MOLLIE_API_KEY ontbreekt. Zet deze in je .env voordat je betalingen maakt.");
+}
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn("Supabase is nog niet gekoppeld. Referralgegevens worden nu alleen gelogd.");
 }
 
 // ==== Mollie client ====
@@ -55,6 +62,93 @@ const addWebhookUrlWhenPublic = (paymentConfig, webhookPath) => {
   return paymentConfig;
 };
 
+const hasDatabase = () => Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+
+async function supabaseRequest(table, { method = "POST", query = "", body = null, prefer = "" } = {}) {
+  if (!hasDatabase()) return null;
+
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+  const response = await fetch(url, {
+    method,
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(prefer ? { Prefer: prefer } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Supabase ${table} ${method} failed: ${response.status} ${text}`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json().catch(() => null);
+}
+
+async function upsertRecord(table, row, conflictColumn) {
+  if (!hasDatabase()) {
+    console.log(`[db-off] ${table}:`, row);
+    return null;
+  }
+
+  try {
+    return await supabaseRequest(table, {
+      method: "POST",
+      query: `?on_conflict=${encodeURIComponent(conflictColumn)}`,
+      body: row,
+      prefer: "resolution=merge-duplicates,return=representation",
+    });
+  } catch (error) {
+    console.error(`[db] ${table} opslaan mislukt:`, error.message);
+    return null;
+  }
+}
+
+function getCommissionValue(plan) {
+  if (plan === "oneoff7") return "3.50";
+  if (plan === "premium5") return "2.50";
+  return "0.00";
+}
+
+async function recordPayment(payment, { checkoutUrl = "" } = {}) {
+  const metadata = payment.metadata || {};
+  const plan = metadata.plan || "unknown";
+  const referrer = metadata.referrer || null;
+  const email = metadata.email || null;
+  const amount = payment.amount || {};
+
+  await upsertRecord("guardtap_payments", {
+    mollie_payment_id: payment.id,
+    plan,
+    status: payment.status || "open",
+    amount_value: amount.value || null,
+    amount_currency: amount.currency || "EUR",
+    email,
+    referrer_code: referrer,
+    customer_id: metadata.customerId || payment.customerId || null,
+    subscription_id: payment.subscriptionId || metadata.subscriptionId || null,
+    checkout_url: checkoutUrl || payment.getCheckoutUrl?.() || null,
+    metadata,
+    updated_at: new Date().toISOString(),
+  }, "mollie_payment_id");
+
+  if (payment.status === "paid" && referrer) {
+    await upsertRecord("guardtap_referral_commissions", {
+      mollie_payment_id: payment.id,
+      referrer_code: referrer,
+      buyer_email: email,
+      plan,
+      commission_value: getCommissionValue(plan),
+      commission_currency: "EUR",
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    }, "mollie_payment_id");
+  }
+}
+
 const getFrontendReturnUrl = (plan) => {
   const params = new URLSearchParams({ paid: "1", download: "1" });
   if (plan) params.set("plan", plan);
@@ -79,9 +173,11 @@ app.get("/", (_req, res) => {
     routes: [
       "GET /",
       "GET /health",
+      "GET /debug/config",
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
+      "GET /api/referrals/:code",
       "POST /api/subscription-webhook",
       "POST /mollie/create-payment",
       "GET /mollie/return",
@@ -91,6 +187,17 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/debug/config", (_req, res) => {
+  res.json({
+    ok: true,
+    mollie: Boolean(MOLLIE_API_KEY && MOLLIE_API_KEY.startsWith("live_")),
+    mollieMode: MOLLIE_API_KEY.startsWith("live_") ? "live" : MOLLIE_API_KEY.startsWith("test_") ? "test" : "missing",
+    supabase: hasDatabase(),
+    baseUrl: BASE_URL,
+    frontendUrl: FRONTEND_URL,
+  });
+});
 
 // ==== SOS voorbeeld (zoals in jouw versie) ====
 app.post("/api/sos", (req, res) => {
@@ -123,7 +230,47 @@ app.post("/api/subscribe", (req, res) => {
     source,
   });
 
+  upsertRecord("guardtap_email_subscribers", {
+    email,
+    source,
+    updated_at: new Date().toISOString(),
+  }, "email");
+
   res.json({ ok: true });
+});
+
+app.get("/api/referrals/:code", async (req, res) => {
+  const code = String(req.params.code || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
+  if (!code) return res.status(400).json({ ok: false, error: "Invalid referral code" });
+
+  if (!hasDatabase()) {
+    return res.json({
+      ok: true,
+      code,
+      configured: false,
+      message: "Database is nog niet gekoppeld.",
+      paidCount: 0,
+      pendingCommission: "0.00",
+    });
+  }
+
+  try {
+    const rows = await supabaseRequest("guardtap_referral_commissions", {
+      method: "GET",
+      query: `?referrer_code=eq.${encodeURIComponent(code)}&status=eq.pending&select=commission_value`,
+    });
+    const total = (rows || []).reduce((sum, row) => sum + Number(row.commission_value || 0), 0);
+    return res.json({
+      ok: true,
+      code,
+      configured: true,
+      paidCount: rows?.length || 0,
+      pendingCommission: total.toFixed(2),
+    });
+  } catch (error) {
+    console.error("[/api/referrals] ERROR:", error.message);
+    return res.status(500).json({ ok: false, error: "Referralgegevens ophalen mislukt" });
+  }
 });
 
 // ==== PLANS voor /api/pay ====
@@ -192,6 +339,7 @@ async function createPremiumSubscriptionAfterFirstPayment(payment) {
 
 async function handlePaidPayment(payment, label) {
   console.log("🧾 Payment status:", payment.id, payment.status, "plan:", payment.metadata?.plan);
+  await recordPayment(payment);
 
   if (payment.status !== "paid") return;
   if (payment.metadata?.plan !== "premium5" || !payment.metadata?.createsSubscription) return;
@@ -221,6 +369,7 @@ app.post("/api/pay", async (req, res) => {
 
     if (plan === "premium5") {
       const payment = await createPremiumFirstPayment({ referrer, email });
+      await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
       console.log("✅ Created premium first payment:", payment.id, payment.getCheckoutUrl());
       return res.json({ id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
     }
@@ -233,6 +382,7 @@ app.post("/api/pay", async (req, res) => {
     }, "/api/webhook");
 
     const payment = await mollie.payments.create(paymentConfig);
+    await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
 
     console.log("✅ Created payment:", payment.id, payment.getCheckoutUrl(), "plan:", plan);
     console.log("↩️  Webhook:", paymentConfig.webhookUrl || "skipped for local development");
@@ -323,6 +473,7 @@ app.post("/api/subscription-webhook", async (req, res) => {
 
     const p = await mollie.payments.get(paymentId);
     console.log("🔁 Premium maandbetaling:", p.id, p.status, "subscription:", p.subscriptionId || p.metadata?.subscriptionId);
+    await recordPayment(p);
     return res.status(200).end();
   } catch (e) {
     console.error("[/api/subscription-webhook] ERROR:", e?.response?.body || e);
