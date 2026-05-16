@@ -127,7 +127,7 @@ app.post("/api/subscribe", (req, res) => {
 
 // ==== PLANS voor /api/pay ====
 const PLANS = {
-  oneoff7:  { value: "7.00", currency: "EUR", description: "GuardTap Basis toegang - eenmalig EUR 7" },
+  oneoff7:  { value: "7.00", currency: "EUR", description: "GuardTap Basis toegang - EUR 7 excl. btw" },
   premium5: { value: "5.00", currency: "EUR", description: "GuardTap Premium toegang - EUR 5 per maand" },
 };
 
