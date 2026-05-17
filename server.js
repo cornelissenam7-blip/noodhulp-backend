@@ -16,6 +16,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 const MOLLIE_API_KEY = (process.env.MOLLIE_API_KEY || "").trim();
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const ADMIN_KEY = (process.env.ADMIN_KEY || "").trim();
 
 console.log("Mollie key loaded?", MOLLIE_API_KEY ? "yes" : "no");
 console.log("BASE_URL:", BASE_URL, "PORT:", PORT);
@@ -196,6 +197,7 @@ app.get("/", (_req, res) => {
       "GET /",
       "GET /health",
       "GET /debug/config",
+      "GET /api/admin/overview",
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
@@ -219,6 +221,60 @@ app.get("/debug/config", (_req, res) => {
     baseUrl: BASE_URL,
     frontendUrl: FRONTEND_URL,
   });
+});
+
+function hasAdminAccess(req) {
+  const supplied = String(req.query?.key || req.headers["x-admin-key"] || "").trim();
+  return Boolean(ADMIN_KEY && supplied && supplied === ADMIN_KEY);
+}
+
+app.get("/api/admin/overview", async (req, res) => {
+  if (!hasAdminAccess(req)) {
+    return res.status(401).json({ ok: false, error: "Admincode klopt niet" });
+  }
+
+  if (!hasDatabase()) {
+    return res.status(503).json({ ok: false, error: "Supabase is niet gekoppeld" });
+  }
+
+  try {
+    const [payments, commissions, subscribers] = await Promise.all([
+      supabaseRequest("guardtap_payments", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=50",
+      }),
+      supabaseRequest("guardtap_referral_commissions", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=50",
+      }),
+      supabaseRequest("guardtap_email_subscribers", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=50",
+      }),
+    ]);
+
+    const paidPayments = (payments || []).filter((row) => row.status === "paid");
+    const pendingCommissions = (commissions || []).filter((row) => row.status === "pending");
+    const pendingTotal = pendingCommissions.reduce((sum, row) => sum + Number(row.commission_value || 0), 0);
+
+    return res.json({
+      ok: true,
+      summary: {
+        payments: payments?.length || 0,
+        paidPayments: paidPayments.length,
+        commissions: commissions?.length || 0,
+        pendingCommissions: pendingCommissions.length,
+        pendingTotal: pendingTotal.toFixed(2),
+        subscribers: subscribers?.length || 0,
+      },
+      payments: payments || [],
+      commissions: commissions || [],
+      subscribers: subscribers || [],
+    });
+  } catch (error) {
+    console.error("[/api/admin/overview] ERROR:", error.message);
+    return res.status(500).json({ ok: false, error: "Admingegevens ophalen mislukt" });
+  }
 });
 
 // ==== SOS voorbeeld (zoals in jouw versie) ====
