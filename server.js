@@ -153,6 +153,23 @@ function cleanReferralCode(value) {
   return String(value || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
 }
 
+function cleanEmail(value) {
+  return String(value || "").trim().toLowerCase().slice(0, 120);
+}
+
+function cleanPhone(value) {
+  return String(value || "").trim().replace(/[^\d+()\-\s]/g, "").slice(0, 40);
+}
+
+function isValidEmail(value) {
+  const email = cleanEmail(value);
+  return Boolean(email && email.includes("@") && email.includes("."));
+}
+
+function isValidPhone(value) {
+  return cleanPhone(value).replace(/\D/g, "").length >= 8;
+}
+
 const getFrontendReturnUrl = (plan, buyerReferralCode = "") => {
   const params = new URLSearchParams({ paid: "1", download: "1" });
   if (plan) params.set("plan", plan);
@@ -221,22 +238,25 @@ app.post("/api/sos", (req, res) => {
 });
 
 app.post("/api/subscribe", (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 120);
+  const email = cleanEmail(req.body?.email);
+  const phone = cleanPhone(req.body?.phone);
   const source = String(req.body?.source || "unknown").trim().slice(0, 40);
 
-  if (!email || !email.includes("@")) {
-    return res.status(400).json({ ok: false, error: "Invalid email" });
+  if (!isValidEmail(email) || !isValidPhone(phone)) {
+    return res.status(400).json({ ok: false, error: "Email and phone are required" });
   }
 
   console.log("📩 Update-inschrijving:", {
     id: randomUUID(),
     at: new Date().toISOString(),
     email,
+    phone,
     source,
   });
 
   upsertRecord("guardtap_email_subscribers", {
     email,
+    phone,
     source,
     updated_at: new Date().toISOString(),
   }, "email");
@@ -284,7 +304,7 @@ const PLANS = {
   premium5: { value: "5.00", currency: "EUR", description: "GuardTap Premium toegang - EUR 5 per maand" },
 };
 
-async function createPremiumFirstPayment({ referrer, buyerReferralCode, email }) {
+async function createPremiumFirstPayment({ referrer, buyerReferralCode, email, phone }) {
   const customer = await mollie.customers.create({
     email: email || undefined,
     name: email || "GuardTap premium klant",
@@ -293,6 +313,7 @@ async function createPremiumFirstPayment({ referrer, buyerReferralCode, email })
       plan: "premium5",
       referrer: referrer || null,
       buyerReferralCode: buyerReferralCode || null,
+      phone: phone || null,
       source: "guardtap",
     },
   });
@@ -307,6 +328,7 @@ async function createPremiumFirstPayment({ referrer, buyerReferralCode, email })
       referrer: referrer || null,
       buyerReferralCode: buyerReferralCode || null,
       email: email || null,
+      phone: phone || null,
       customerId: customer.id,
       createsSubscription: true,
     },
@@ -333,6 +355,7 @@ async function createPremiumSubscriptionAfterFirstPayment(payment) {
     metadata: {
       plan: "premium5",
       email: payment.metadata?.email || null,
+      phone: payment.metadata?.phone || null,
       referrer: payment.metadata?.referrer || null,
       buyerReferralCode: payment.metadata?.buyerReferralCode || null,
       firstPaymentId: payment.id,
@@ -367,8 +390,16 @@ app.post("/api/pay", async (req, res) => {
     const { plan } = req.body || {};
     const referrer = cleanReferralCode(req.body?.referrer);
     const buyerReferralCode = cleanReferralCode(req.body?.buyerReferralCode);
-    const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 120);
+    const email = cleanEmail(req.body?.email);
+    const phone = cleanPhone(req.body?.phone);
     console.log("[/api/pay] body:", req.body, "BASE_URL:", BASE_URL);
+
+    if (!isValidEmail(email) || !isValidPhone(phone)) {
+      return res.status(400).json({
+        error: "Email and phone are required",
+        detail: "Vul e-mailadres en telefoonnummer in voordat je betaalt.",
+      });
+    }
 
     const cfg = PLANS[plan];
     if (!cfg) {
@@ -377,7 +408,7 @@ app.post("/api/pay", async (req, res) => {
     }
 
     if (plan === "premium5") {
-      const payment = await createPremiumFirstPayment({ referrer, buyerReferralCode, email });
+      const payment = await createPremiumFirstPayment({ referrer, buyerReferralCode, email, phone });
       await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
       console.log("✅ Created premium first payment:", payment.id, payment.getCheckoutUrl());
       return res.json({ id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
@@ -387,7 +418,7 @@ app.post("/api/pay", async (req, res) => {
       amount: { currency: cfg.currency, value: cfg.value },
       description: cfg.description,
       redirectUrl: getFrontendReturnUrl(plan, buyerReferralCode),
-      metadata: { plan, referrer: referrer || null, buyerReferralCode: buyerReferralCode || null, email: email || null },
+      metadata: { plan, referrer: referrer || null, buyerReferralCode: buyerReferralCode || null, email: email || null, phone: phone || null },
     }, "/api/webhook");
 
     const payment = await mollie.payments.create(paymentConfig);
