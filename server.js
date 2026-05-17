@@ -149,9 +149,14 @@ async function recordPayment(payment, { checkoutUrl = "" } = {}) {
   }
 }
 
-const getFrontendReturnUrl = (plan) => {
+function cleanReferralCode(value) {
+  return String(value || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
+}
+
+const getFrontendReturnUrl = (plan, buyerReferralCode = "") => {
   const params = new URLSearchParams({ paid: "1", download: "1" });
   if (plan) params.set("plan", plan);
+  if (buyerReferralCode) params.set("myref", buyerReferralCode);
   return `${FRONTEND_URL}/?${params.toString()}`;
 };
 
@@ -279,7 +284,7 @@ const PLANS = {
   premium5: { value: "5.00", currency: "EUR", description: "GuardTap Premium toegang - EUR 5 per maand" },
 };
 
-async function createPremiumFirstPayment({ referrer, email }) {
+async function createPremiumFirstPayment({ referrer, buyerReferralCode, email }) {
   const customer = await mollie.customers.create({
     email: email || undefined,
     name: email || "GuardTap premium klant",
@@ -287,6 +292,7 @@ async function createPremiumFirstPayment({ referrer, email }) {
     metadata: {
       plan: "premium5",
       referrer: referrer || null,
+      buyerReferralCode: buyerReferralCode || null,
       source: "guardtap",
     },
   });
@@ -294,11 +300,12 @@ async function createPremiumFirstPayment({ referrer, email }) {
   const paymentConfig = addWebhookUrlWhenPublic({
     amount: { currency: "EUR", value: "5.00" },
     description: "GuardTap Premium - eerste maand",
-    redirectUrl: getFrontendReturnUrl("premium5"),
+    redirectUrl: getFrontendReturnUrl("premium5", buyerReferralCode),
     sequenceType: "first",
     metadata: {
       plan: "premium5",
       referrer: referrer || null,
+      buyerReferralCode: buyerReferralCode || null,
       email: email || null,
       customerId: customer.id,
       createsSubscription: true,
@@ -327,6 +334,7 @@ async function createPremiumSubscriptionAfterFirstPayment(payment) {
       plan: "premium5",
       email: payment.metadata?.email || null,
       referrer: payment.metadata?.referrer || null,
+      buyerReferralCode: payment.metadata?.buyerReferralCode || null,
       firstPaymentId: payment.id,
     },
     idempotencyKey: `guardtap-premium-${payment.id}`,
@@ -357,7 +365,8 @@ app.post("/api/pay", async (req, res) => {
     if (!requireMollie(res)) return;
 
     const { plan } = req.body || {};
-    const referrer = String(req.body?.referrer || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
+    const referrer = cleanReferralCode(req.body?.referrer);
+    const buyerReferralCode = cleanReferralCode(req.body?.buyerReferralCode);
     const email = String(req.body?.email || "").trim().toLowerCase().slice(0, 120);
     console.log("[/api/pay] body:", req.body, "BASE_URL:", BASE_URL);
 
@@ -368,7 +377,7 @@ app.post("/api/pay", async (req, res) => {
     }
 
     if (plan === "premium5") {
-      const payment = await createPremiumFirstPayment({ referrer, email });
+      const payment = await createPremiumFirstPayment({ referrer, buyerReferralCode, email });
       await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
       console.log("✅ Created premium first payment:", payment.id, payment.getCheckoutUrl());
       return res.json({ id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
@@ -377,8 +386,8 @@ app.post("/api/pay", async (req, res) => {
     const paymentConfig = addWebhookUrlWhenPublic({
       amount: { currency: cfg.currency, value: cfg.value },
       description: cfg.description,
-      redirectUrl: getFrontendReturnUrl(plan),
-      metadata: { plan, referrer: referrer || null, email: email || null },
+      redirectUrl: getFrontendReturnUrl(plan, buyerReferralCode),
+      metadata: { plan, referrer: referrer || null, buyerReferralCode: buyerReferralCode || null, email: email || null },
     }, "/api/webhook");
 
     const payment = await mollie.payments.create(paymentConfig);
