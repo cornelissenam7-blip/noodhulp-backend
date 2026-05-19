@@ -266,6 +266,22 @@ function isValidIban(value) {
   return /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban);
 }
 
+function cleanText(value, maxLength = 300) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
+function cleanUrl(value) {
+  const raw = String(value || "").trim().slice(0, 500);
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
 const getFrontendReturnUrl = (plan, buyerReferralCode = "") => {
   const params = new URLSearchParams({ paid: "1", download: "1" });
   if (plan) params.set("plan", plan);
@@ -293,6 +309,8 @@ app.get("/", (_req, res) => {
       "GET /health",
       "GET /debug/config",
     "GET /api/admin/overview",
+      "GET /api/campaign",
+      "POST /api/admin/campaign",
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
@@ -334,7 +352,7 @@ app.get("/api/admin/overview", async (req, res) => {
   }
 
   try {
-    const [payments, commissions, subscribers, affiliates] = await Promise.all([
+    const [payments, commissions, subscribers, affiliates, campaigns] = await Promise.all([
       supabaseRequest("guardtap_payments", {
         method: "GET",
         query: "?select=*&order=created_at.desc&limit=500",
@@ -352,6 +370,13 @@ app.get("/api/admin/overview", async (req, res) => {
         query: "?select=*&order=created_at.desc&limit=500",
       }).catch((error) => {
         console.warn("[admin] Affiliates nog niet beschikbaar:", error.message);
+        return [];
+      }),
+      supabaseRequest("guardtap_campaigns", {
+        method: "GET",
+        query: "?select=*&order=updated_at.desc&limit=20",
+      }).catch((error) => {
+        console.warn("[admin] Campaigns nog niet beschikbaar:", error.message);
         return [];
       }),
     ]);
@@ -380,12 +405,67 @@ app.get("/api/admin/overview", async (req, res) => {
       commissions: commissions || [],
       payouts,
       affiliates: affiliates || [],
+      campaigns: campaigns || [],
+      campaign: (campaigns || []).find((row) => row.active) || (campaigns || [])[0] || null,
       subscribers: subscribers || [],
     });
   } catch (error) {
     console.error("[/api/admin/overview] ERROR:", error.message);
     return res.status(500).json({ ok: false, error: "Admingegevens ophalen mislukt" });
   }
+});
+
+app.get("/api/campaign", async (_req, res) => {
+  if (!hasDatabase()) {
+    return res.json({ ok: true, campaign: null });
+  }
+
+  try {
+    const rows = await supabaseRequest("guardtap_campaigns", {
+      method: "GET",
+      query: "?active=eq.true&select=*&order=updated_at.desc&limit=1",
+    });
+    return res.json({ ok: true, campaign: rows?.[0] || null });
+  } catch (error) {
+    console.warn("[/api/campaign] Geen campagne beschikbaar:", error.message);
+    return res.json({ ok: true, campaign: null });
+  }
+});
+
+app.post("/api/admin/campaign", async (req, res) => {
+  if (!hasAdminAccess(req)) {
+    return res.status(401).json({ ok: false, error: "Admincode klopt niet" });
+  }
+
+  const title = cleanText(req.body?.title, 80);
+  const body = cleanText(req.body?.body, 260);
+  const buttonText = cleanText(req.body?.buttonText, 40);
+  const buttonUrl = cleanUrl(req.body?.buttonUrl);
+  const active = req.body?.active !== false;
+
+  if (!title || !body) {
+    return res.status(400).json({ ok: false, error: "Titel en tekst zijn verplicht." });
+  }
+
+  if (buttonText && !buttonUrl) {
+    return res.status(400).json({ ok: false, error: "Gebruik een geldige link met https:// als je een knop gebruikt." });
+  }
+
+  const saved = await upsertRecord("guardtap_campaigns", {
+    campaign_id: "main",
+    title,
+    body,
+    button_text: buttonText || null,
+    button_url: buttonUrl || null,
+    active,
+    updated_at: new Date().toISOString(),
+  }, "campaign_id");
+
+  if (!saved) {
+    return res.status(500).json({ ok: false, error: "Campagne opslaan mislukt." });
+  }
+
+  return res.json({ ok: true, campaign: saved?.[0] || null });
 });
 
 // ==== SOS voorbeeld (zoals in jouw versie) ====
