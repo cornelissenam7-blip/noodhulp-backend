@@ -209,6 +209,29 @@ function buildPayoutOverview(payments = [], commissions = []) {
     .sort((a, b) => Number(b.total) - Number(a.total));
 }
 
+function addAffiliateDataToPayouts(payouts = [], affiliates = []) {
+  const affiliatesByCode = new Map(
+    (affiliates || []).map((affiliate) => [cleanReferralCode(affiliate.referral_code || ""), affiliate])
+  );
+
+  return (payouts || []).map((row) => {
+    const affiliate = affiliatesByCode.get(row.code);
+    if (!affiliate) return row;
+    const iban = affiliate.iban || "";
+    return {
+      ...row,
+      name: affiliate.name || "",
+      email: affiliate.email || row.email || "",
+      phone: affiliate.phone || row.phone || "",
+      iban,
+      ready: Boolean(iban && affiliate.accepted_terms && affiliate.status === "active"),
+      note: iban && affiliate.accepted_terms && affiliate.status === "active"
+        ? "Klaar voor bankexport"
+        : "Gegevens nog niet compleet",
+    };
+  });
+}
+
 function cleanReferralCode(value) {
   return String(value || "").trim().replace(/[^a-zA-Z0-9-]/g, "").slice(0, 32);
 }
@@ -228,6 +251,19 @@ function isValidEmail(value) {
 
 function isValidPhone(value) {
   return cleanPhone(value).replace(/\D/g, "").length >= 8;
+}
+
+function cleanName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
+}
+
+function cleanIban(value) {
+  return String(value || "").trim().toUpperCase().replace(/\s+/g, "").replace(/[^A-Z0-9]/g, "").slice(0, 34);
+}
+
+function isValidIban(value) {
+  const iban = cleanIban(value);
+  return /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban);
 }
 
 const getFrontendReturnUrl = (plan, buyerReferralCode = "") => {
@@ -256,10 +292,11 @@ app.get("/", (_req, res) => {
       "GET /",
       "GET /health",
       "GET /debug/config",
-      "GET /api/admin/overview",
+    "GET /api/admin/overview",
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
+      "POST /api/affiliate-payout",
       "GET /api/referrals/:code",
       "POST /api/subscription-webhook",
       "POST /mollie/create-payment",
@@ -297,7 +334,7 @@ app.get("/api/admin/overview", async (req, res) => {
   }
 
   try {
-    const [payments, commissions, subscribers] = await Promise.all([
+    const [payments, commissions, subscribers, affiliates] = await Promise.all([
       supabaseRequest("guardtap_payments", {
         method: "GET",
         query: "?select=*&order=created_at.desc&limit=500",
@@ -310,12 +347,19 @@ app.get("/api/admin/overview", async (req, res) => {
         method: "GET",
         query: "?select=*&order=created_at.desc&limit=500",
       }),
+      supabaseRequest("guardtap_affiliates", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=500",
+      }).catch((error) => {
+        console.warn("[admin] Affiliates nog niet beschikbaar:", error.message);
+        return [];
+      }),
     ]);
 
     const paidPayments = (payments || []).filter((row) => row.status === "paid");
     const pendingCommissions = (commissions || []).filter((row) => row.status === "pending");
     const pendingTotal = pendingCommissions.reduce((sum, row) => sum + Number(row.commission_value || 0), 0);
-    const payouts = buildPayoutOverview(payments || [], commissions || []);
+    const payouts = addAffiliateDataToPayouts(buildPayoutOverview(payments || [], commissions || []), affiliates || []);
     const readyPayouts = payouts.filter((row) => row.ready);
     const readyPayoutTotal = readyPayouts.reduce((sum, row) => sum + Number(row.total || 0), 0);
 
@@ -335,6 +379,7 @@ app.get("/api/admin/overview", async (req, res) => {
       payments: payments || [],
       commissions: commissions || [],
       payouts,
+      affiliates: affiliates || [],
       subscribers: subscribers || [],
     });
   } catch (error) {
@@ -384,6 +429,39 @@ app.post("/api/subscribe", (req, res) => {
   }, "email");
 
   res.json({ ok: true });
+});
+
+app.post("/api/affiliate-payout", async (req, res) => {
+  const referralCode = cleanReferralCode(req.body?.referralCode);
+  const name = cleanName(req.body?.name);
+  const email = cleanEmail(req.body?.email);
+  const phone = cleanPhone(req.body?.phone);
+  const iban = cleanIban(req.body?.iban);
+  const acceptedTerms = Boolean(req.body?.acceptedTerms);
+
+  if (!referralCode || !name || !isValidEmail(email) || !isValidPhone(phone) || !isValidIban(iban) || !acceptedTerms) {
+    return res.status(400).json({
+      ok: false,
+      error: "Vul referral-code, naam, e-mail, telefoon, IBAN en akkoord volledig in.",
+    });
+  }
+
+  const saved = await upsertRecord("guardtap_affiliates", {
+    referral_code: referralCode,
+    name,
+    email,
+    phone,
+    iban,
+    accepted_terms: true,
+    status: "active",
+    updated_at: new Date().toISOString(),
+  }, "referral_code");
+
+  if (!saved) {
+    return res.status(500).json({ ok: false, error: "Uitbetaalgegevens opslaan mislukt." });
+  }
+
+  return res.json({ ok: true, referralCode });
 });
 
 app.get("/api/referrals/:code", async (req, res) => {
