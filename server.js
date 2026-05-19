@@ -128,6 +128,7 @@ async function recordPayment(payment, { checkoutUrl = "" } = {}) {
     amount_value: amount.value || null,
     amount_currency: amount.currency || "EUR",
     email,
+    phone: metadata.phone || null,
     referrer_code: referrer,
     customer_id: metadata.customerId || payment.customerId || null,
     subscription_id: payment.subscriptionId || metadata.subscriptionId || null,
@@ -148,6 +149,64 @@ async function recordPayment(payment, { checkoutUrl = "" } = {}) {
       updated_at: new Date().toISOString(),
     }, "mollie_payment_id");
   }
+}
+
+function buildPayoutOverview(payments = [], commissions = []) {
+  const ownersByCode = new Map();
+
+  for (const payment of payments || []) {
+    const metadata = payment.metadata || {};
+    const code = cleanReferralCode(metadata.buyerReferralCode || "");
+    if (!code || payment.status !== "paid") continue;
+    if (!ownersByCode.has(code)) {
+      ownersByCode.set(code, {
+        code,
+        email: payment.email || metadata.email || "",
+        phone: payment.phone || metadata.phone || "",
+        iban: metadata.iban || "",
+        sourcePaymentId: payment.mollie_payment_id || "",
+      });
+    }
+  }
+
+  const grouped = new Map();
+  for (const row of commissions || []) {
+    if (row.status !== "pending") continue;
+    const code = cleanReferralCode(row.referrer_code || "");
+    if (!code) continue;
+
+    const current = grouped.get(code) || {
+      code,
+      email: "",
+      phone: "",
+      iban: "",
+      count: 0,
+      total: 0,
+      currency: row.commission_currency || "EUR",
+      status: "pending",
+      note: "",
+    };
+
+    current.count += 1;
+    current.total += Number(row.commission_value || 0);
+    grouped.set(code, current);
+  }
+
+  return Array.from(grouped.values())
+    .map((row) => {
+      const owner = ownersByCode.get(row.code) || {};
+      const iban = owner.iban || row.iban || "";
+      return {
+        ...row,
+        email: owner.email || "",
+        phone: owner.phone || "",
+        iban,
+        total: row.total.toFixed(2),
+        ready: Boolean(iban),
+        note: iban ? "Klaar voor bankexport" : "IBAN ontbreekt nog",
+      };
+    })
+    .sort((a, b) => Number(b.total) - Number(a.total));
 }
 
 function cleanReferralCode(value) {
@@ -241,21 +300,24 @@ app.get("/api/admin/overview", async (req, res) => {
     const [payments, commissions, subscribers] = await Promise.all([
       supabaseRequest("guardtap_payments", {
         method: "GET",
-        query: "?select=*&order=created_at.desc&limit=50",
+        query: "?select=*&order=created_at.desc&limit=500",
       }),
       supabaseRequest("guardtap_referral_commissions", {
         method: "GET",
-        query: "?select=*&order=created_at.desc&limit=50",
+        query: "?select=*&order=created_at.desc&limit=500",
       }),
       supabaseRequest("guardtap_email_subscribers", {
         method: "GET",
-        query: "?select=*&order=created_at.desc&limit=50",
+        query: "?select=*&order=created_at.desc&limit=500",
       }),
     ]);
 
     const paidPayments = (payments || []).filter((row) => row.status === "paid");
     const pendingCommissions = (commissions || []).filter((row) => row.status === "pending");
     const pendingTotal = pendingCommissions.reduce((sum, row) => sum + Number(row.commission_value || 0), 0);
+    const payouts = buildPayoutOverview(payments || [], commissions || []);
+    const readyPayouts = payouts.filter((row) => row.ready);
+    const readyPayoutTotal = readyPayouts.reduce((sum, row) => sum + Number(row.total || 0), 0);
 
     return res.json({
       ok: true,
@@ -265,10 +327,14 @@ app.get("/api/admin/overview", async (req, res) => {
         commissions: commissions?.length || 0,
         pendingCommissions: pendingCommissions.length,
         pendingTotal: pendingTotal.toFixed(2),
+        payoutAffiliates: payouts.length,
+        readyPayouts: readyPayouts.length,
+        readyPayoutTotal: readyPayoutTotal.toFixed(2),
         subscribers: subscribers?.length || 0,
       },
       payments: payments || [],
       commissions: commissions || [],
+      payouts,
       subscribers: subscribers || [],
     });
   } catch (error) {
