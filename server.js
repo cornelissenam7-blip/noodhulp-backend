@@ -303,7 +303,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(cors({ origin: CORS_ORIGIN }));
+const allowedOrigins = CORS_ORIGIN === "*"
+  ? "*"
+  : CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (allowedOrigins === "*" || !origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
 app.use(express.static(path.join(__dirname, "public"))); // serveert /public
