@@ -270,6 +270,15 @@ function cleanText(value, maxLength = 300) {
   return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
 }
 
+function cleanSlug(value, maxLength = 80) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maxLength);
+}
+
 function cleanUrl(value) {
   const raw = String(value || "").trim().slice(0, 500);
   if (!raw) return "";
@@ -311,6 +320,9 @@ app.get("/", (_req, res) => {
     "GET /api/admin/overview",
       "GET /api/campaign",
       "POST /api/admin/campaign",
+      "GET /api/agent/overview",
+      "POST /api/agent/track",
+      "POST /api/agent/lead",
       "POST /api/pay",
       "POST /api/sos",
       "POST /api/subscribe",
@@ -466,6 +478,170 @@ app.post("/api/admin/campaign", async (req, res) => {
   }
 
   return res.json({ ok: true, campaign: saved?.[0] || null });
+});
+
+app.post("/api/agent/track", async (req, res) => {
+  const site = cleanSlug(req.body?.site || req.query?.site || "unknown");
+  const source = cleanSlug(req.body?.source || req.query?.utm_source || req.body?.utm_source || "direct");
+  const medium = cleanSlug(req.body?.medium || req.query?.utm_medium || req.body?.utm_medium || "unknown");
+  const campaign = cleanSlug(req.body?.campaign || req.query?.utm_campaign || req.body?.utm_campaign || "unknown");
+  const pageUrl = cleanUrl(req.body?.pageUrl || req.headers.referer || "");
+  const referrer = cleanUrl(req.body?.referrer || "");
+
+  const eventId = randomUUID();
+  const row = {
+    event_id: eventId,
+    site,
+    event_type: "visit",
+    source,
+    medium,
+    campaign,
+    page_url: pageUrl || null,
+    referrer: referrer || null,
+    user_agent: cleanText(req.headers["user-agent"] || "", 300),
+    metadata: req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {},
+    created_at: new Date().toISOString(),
+  };
+
+  if (hasDatabase()) {
+    try {
+      await supabaseRequest("corenova_campaign_events", {
+        method: "POST",
+        body: row,
+        prefer: "return=minimal",
+      });
+    } catch (error) {
+      console.error("[/api/agent/track] Opslaan mislukt:", error.message);
+    }
+  } else {
+    console.log("[agent-track]", row);
+  }
+
+  return res.json({ ok: true, eventId });
+});
+
+app.post("/api/agent/lead", async (req, res) => {
+  const site = cleanSlug(req.body?.site || "unknown");
+  const source = cleanSlug(req.body?.source || req.body?.utm_source || "direct");
+  const medium = cleanSlug(req.body?.medium || req.body?.utm_medium || "unknown");
+  const campaign = cleanSlug(req.body?.campaign || req.body?.utm_campaign || "unknown");
+  const name = cleanName(req.body?.name || "");
+  const email = cleanEmail(req.body?.email || "");
+  const phone = cleanPhone(req.body?.phone || "");
+  const message = cleanText(req.body?.message || "", 1000);
+
+  if (!email && !phone) {
+    return res.status(400).json({ ok: false, error: "E-mail of telefoon is verplicht." });
+  }
+
+  const leadId = randomUUID();
+  const row = {
+    lead_id: leadId,
+    site,
+    source,
+    medium,
+    campaign,
+    name: name || null,
+    email: email || null,
+    phone: phone || null,
+    message: message || null,
+    status: "new",
+    metadata: req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (hasDatabase()) {
+    try {
+      await supabaseRequest("corenova_campaign_leads", {
+        method: "POST",
+        body: row,
+        prefer: "return=minimal",
+      });
+    } catch (error) {
+      console.error("[/api/agent/lead] Opslaan mislukt:", error.message);
+      return res.status(500).json({ ok: false, error: "Lead opslaan mislukt." });
+    }
+  } else {
+    console.log("[agent-lead]", row);
+  }
+
+  return res.json({ ok: true, leadId });
+});
+
+app.get("/api/agent/overview", async (req, res) => {
+  if (!hasAdminAccess(req)) {
+    return res.status(401).json({ ok: false, error: "Admincode klopt niet" });
+  }
+
+  if (!hasDatabase()) {
+    return res.status(503).json({ ok: false, error: "Supabase is niet gekoppeld" });
+  }
+
+  try {
+    const [events, leads] = await Promise.all([
+      supabaseRequest("corenova_campaign_events", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=1000",
+      }).catch((error) => {
+        console.warn("[agent] Events nog niet beschikbaar:", error.message);
+        return [];
+      }),
+      supabaseRequest("corenova_campaign_leads", {
+        method: "GET",
+        query: "?select=*&order=created_at.desc&limit=1000",
+      }).catch((error) => {
+        console.warn("[agent] Leads nog niet beschikbaar:", error.message);
+        return [];
+      }),
+    ]);
+
+    const grouped = new Map();
+    for (const event of events || []) {
+      const key = `${event.site || "unknown"}|${event.campaign || "unknown"}`;
+      const current = grouped.get(key) || {
+        site: event.site || "unknown",
+        campaign: event.campaign || "unknown",
+        visits: 0,
+        leads: 0,
+        source: event.source || "",
+        medium: event.medium || "",
+      };
+      current.visits += 1;
+      grouped.set(key, current);
+    }
+
+    for (const lead of leads || []) {
+      const key = `${lead.site || "unknown"}|${lead.campaign || "unknown"}`;
+      const current = grouped.get(key) || {
+        site: lead.site || "unknown",
+        campaign: lead.campaign || "unknown",
+        visits: 0,
+        leads: 0,
+        source: lead.source || "",
+        medium: lead.medium || "",
+      };
+      current.leads += 1;
+      grouped.set(key, current);
+    }
+
+    const campaigns = Array.from(grouped.values()).sort((a, b) => b.leads - a.leads || b.visits - a.visits);
+
+    return res.json({
+      ok: true,
+      summary: {
+        visits: events?.length || 0,
+        leads: leads?.length || 0,
+        campaigns: campaigns.length,
+      },
+      campaigns,
+      recentLeads: (leads || []).slice(0, 50),
+      recentEvents: (events || []).slice(0, 50),
+    });
+  } catch (error) {
+    console.error("[/api/agent/overview] ERROR:", error.message);
+    return res.status(500).json({ ok: false, error: "Agentoverzicht ophalen mislukt" });
+  }
 });
 
 // ==== SOS voorbeeld (zoals in jouw versie) ====
