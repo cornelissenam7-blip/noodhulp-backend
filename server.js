@@ -846,6 +846,57 @@ const PLANS = {
   premium5: { value: "5.00", currency: "EUR", description: "GuardTap Premium toegang - EUR 5 per maand" },
 };
 
+function cleanReturnUrl(value) {
+  const fallback = `${FRONTEND_URL}/sitebuilder.html?paid=1`;
+  try {
+    const url = new URL(String(value || fallback));
+    if (!["http:", "https:"].includes(url.protocol)) return fallback;
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
+app.post("/api/corenova/sitebuilder/checkout", async (req, res) => {
+  try {
+    if (!requireMollie(res)) return;
+
+    const email = cleanEmail(req.body?.email || "");
+    const phone = cleanPhone(req.body?.phone || "");
+    const name = cleanName(req.body?.name || "");
+    const leadId = cleanText(req.body?.leadId || "", 80);
+    const agent = cleanText(req.body?.agent || "Site Builder Agent", 80);
+    const returnUrl = cleanReturnUrl(req.body?.returnUrl);
+
+    if (!email && !phone) {
+      return res.status(400).json({ ok: false, error: "E-mail of telefoon is verplicht." });
+    }
+
+    const paymentConfig = addWebhookUrlWhenPublic({
+      amount: { currency: "EUR", value: "7.00" },
+      description: "CoreNova Site Builder toegang",
+      redirectUrl: returnUrl,
+      metadata: {
+        plan: "corenova_sitebuilder_7",
+        source: "corenova",
+        agent,
+        leadId: leadId || null,
+        name: name || null,
+        email: email || null,
+        phone: phone || null,
+      },
+    }, "/api/webhook");
+
+    const payment = await mollie.payments.create(paymentConfig);
+    await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
+
+    return res.json({ ok: true, id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
+  } catch (error) {
+    console.error("[/api/corenova/sitebuilder/checkout] ERROR:", error?.response?.body || error);
+    return res.status(500).json({ ok: false, error: "Betaling starten mislukt" });
+  }
+});
+
 async function createPremiumFirstPayment({ referrer, buyerReferralCode, email, phone }) {
   const customer = await mollie.customers.create({
     email: email || undefined,
