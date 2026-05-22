@@ -531,6 +531,68 @@ app.post("/api/agent/track", async (req, res) => {
   return res.json({ ok: true, eventId });
 });
 
+function buildCoreNovaAgentAction({ project, agentLabel, message, campaign, source, medium }) {
+  const selected = cleanSlug(project || "");
+  const readableAgent = cleanText(agentLabel || "", 80) || "CoreNova Agent";
+  const request = cleanText(message || "", 700);
+  const channel = [source, medium, campaign].filter(Boolean).join(" / ");
+
+  if (selected === "site-builder-agent") {
+    return {
+      agent: "Site Builder Agent",
+      actionType: "site_plan",
+      title: "Site Builder Agent: eerste siteplan",
+      summary: "Maak een duidelijke pagina-opzet voor deze aanvraag.",
+      nextSteps: [
+        "Bepaal doel van de pagina en belangrijkste doelgroep.",
+        "Maak een eerste paginastructuur: hero, voordelen, bewijs, aanvraagformulier.",
+        "Schrijf conceptteksten voor bovenkant en formulierblok.",
+        "Controleer of de aanvraagknop en leadkoppeling duidelijk zichtbaar zijn.",
+      ],
+      firstDraft: request
+        ? `Start met deze vraag van de klant: ${request}`
+        : "Start met een korte intake: doel, doelgroep, stijl en gewenste call-to-action.",
+      campaignContext: channel || "Geen campagnecontext meegestuurd.",
+    };
+  }
+
+  if (selected === "admaker-agent") {
+    return {
+      agent: "AdMaker Agent",
+      actionType: "ad_variants",
+      title: "AdMaker Agent: eerste advertentievarianten",
+      summary: "Maak advertentie-ideeen en testvarianten voor deze aanvraag.",
+      nextSteps: [
+        "Bepaal kanaal: Google, Meta of LinkedIn.",
+        "Maak drie korte headlines en twee beschrijvingen.",
+        "Koppel elke advertentievariant aan dezelfde trackingstructuur.",
+        "Meet daarna welke variant de meeste leads oplevert.",
+      ],
+      firstDraft: request
+        ? `Advertentie-insteek gebaseerd op: ${request}`
+        : "Start met een algemene campagne voor zichtbaarheid, vertrouwen en aanvraag.",
+      campaignContext: channel || "Geen campagnecontext meegestuurd.",
+    };
+  }
+
+  return {
+    agent: readableAgent,
+    actionType: "campaign_followup",
+    title: "Campaign Agent: eerste vervolgstap",
+    summary: "Leg de lead vast, herken de bron en bepaal de volgende actie.",
+    nextSteps: [
+      "Controleer campagne, bron en gekozen agent in Supabase.",
+      "Neem contact op met de lead via e-mail of telefoon.",
+      "Zet de aanvraag op status opvolgen.",
+      "Vergelijk later hoeveel leads deze campagne oplevert.",
+    ],
+    firstDraft: request
+      ? `Opvolging starten met deze klantvraag: ${request}`
+      : "Opvolging starten met een korte intake over campagne, doel en gewenste uitkomst.",
+    campaignContext: channel || "Geen campagnecontext meegestuurd.",
+  };
+}
+
 app.post("/api/agent/lead", async (req, res) => {
   const site = cleanSlug(req.body?.site || "unknown");
   const source = cleanSlug(req.body?.source || req.body?.utm_source || "direct");
@@ -540,6 +602,15 @@ app.post("/api/agent/lead", async (req, res) => {
   const email = cleanEmail(req.body?.email || "");
   const phone = cleanPhone(req.body?.phone || "");
   const message = cleanText(req.body?.message || "", 1000);
+  const metadata = req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {};
+  const agentAction = buildCoreNovaAgentAction({
+    project: metadata.project,
+    agentLabel: metadata.agentLabel,
+    message,
+    campaign,
+    source,
+    medium,
+  });
 
   if (!email && !phone) {
     return res.status(400).json({ ok: false, error: "E-mail of telefoon is verplicht." });
@@ -557,27 +628,31 @@ app.post("/api/agent/lead", async (req, res) => {
     phone: phone || null,
     message: message || null,
     status: "new",
-    metadata: req.body?.metadata && typeof req.body.metadata === "object" ? req.body.metadata : {},
+    metadata: {
+      ...metadata,
+      agentAction,
+    },
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
-  if (hasDatabase()) {
-    try {
-      await supabaseRequest("corenova_campaign_leads", {
-        method: "POST",
-        body: row,
-        prefer: "return=minimal",
-      });
-    } catch (error) {
-      console.error("[/api/agent/lead] Opslaan mislukt:", error.message);
-      return res.status(500).json({ ok: false, error: "Lead opslaan mislukt." });
-    }
-  } else {
-    console.log("[agent-lead]", row);
+  if (!hasDatabase()) {
+    console.error("[/api/agent/lead] Supabase is niet gekoppeld. Lead niet opgeslagen:", row);
+    return res.status(503).json({ ok: false, saved: false, error: "Supabase is niet gekoppeld." });
   }
 
-  return res.json({ ok: true, leadId });
+  try {
+    await supabaseRequest("corenova_campaign_leads", {
+      method: "POST",
+      body: row,
+      prefer: "return=minimal",
+    });
+  } catch (error) {
+    console.error("[/api/agent/lead] Opslaan mislukt:", error.message);
+    return res.status(500).json({ ok: false, saved: false, error: "Lead opslaan mislukt." });
+  }
+
+  return res.json({ ok: true, saved: true, leadId, agentAction });
 });
 
 app.get("/api/agent/overview", async (req, res) => {
