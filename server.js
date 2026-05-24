@@ -866,18 +866,52 @@ async function createSiteBuilderCheckout(req, res) {
     const name = cleanName(req.body?.name || "");
     const leadId = cleanText(req.body?.leadId || "", 80);
     const agent = cleanText(req.body?.agent || "Site Builder Agent", 80);
+    const requestedPlan = cleanText(req.body?.plan || "sitebuilder_7", 80);
     const returnUrl = cleanReturnUrl(req.body?.returnUrl);
+    const checkoutPlans = {
+      affiliate_starter_17: {
+        id: "affiliate_starter_17",
+        value: "17.00",
+        description: "Amcinova Affiliate Funnel Starter - EUR 17",
+      },
+      affiliate_upsell_starter_95: {
+        id: "affiliate_upsell_starter_95",
+        value: "95.00",
+        description: "Amcinova Affiliate Upsell Starter - EUR 95",
+      },
+      affiliate_upsell_growth_295: {
+        id: "affiliate_upsell_growth_295",
+        value: "295.00",
+        description: "Amcinova Affiliate Upsell Growth - EUR 295",
+      },
+      affiliate_upsell_pro_795: {
+        id: "affiliate_upsell_pro_795",
+        value: "795.00",
+        description: "Amcinova Affiliate Upsell Pro - EUR 795",
+      },
+      affiliate_dfy_1497: {
+        id: "affiliate_dfy_1497",
+        value: "1497.00",
+        description: "Amcinova Affiliate Funnel Done For You - EUR 1497",
+      },
+      sitebuilder_7: {
+        id: "amcinova_sitebuilder_7",
+        value: "7.00",
+        description: "Amcinova Site Builder toegang",
+      },
+    };
+    const checkoutPlan = checkoutPlans[requestedPlan] || checkoutPlans.sitebuilder_7;
 
     if (!email && !phone) {
       return res.status(400).json({ ok: false, error: "E-mail of telefoon is verplicht." });
     }
 
     const paymentConfig = addWebhookUrlWhenPublic({
-      amount: { currency: "EUR", value: "7.00" },
-      description: "Amcinova Site Builder toegang",
+      amount: { currency: "EUR", value: checkoutPlan.value },
+      description: checkoutPlan.description,
       redirectUrl: returnUrl,
       metadata: {
-        plan: "amcinova_sitebuilder_7",
+        plan: checkoutPlan.id,
         source: "amcinova",
         agent,
         leadId: leadId || null,
