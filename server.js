@@ -857,7 +857,7 @@ function cleanReturnUrl(value) {
   }
 }
 
-app.post("/api/corenova/sitebuilder/checkout", async (req, res) => {
+async function createSiteBuilderCheckout(req, res) {
   try {
     if (!requireMollie(res)) return;
 
@@ -874,11 +874,11 @@ app.post("/api/corenova/sitebuilder/checkout", async (req, res) => {
 
     const paymentConfig = addWebhookUrlWhenPublic({
       amount: { currency: "EUR", value: "7.00" },
-      description: "CoreNova Site Builder toegang",
+      description: "Amcinova Site Builder toegang",
       redirectUrl: returnUrl,
       metadata: {
-        plan: "corenova_sitebuilder_7",
-        source: "corenova",
+        plan: "amcinova_sitebuilder_7",
+        source: "amcinova",
         agent,
         leadId: leadId || null,
         name: name || null,
@@ -892,8 +892,83 @@ app.post("/api/corenova/sitebuilder/checkout", async (req, res) => {
 
     return res.json({ ok: true, id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
   } catch (error) {
-    console.error("[/api/corenova/sitebuilder/checkout] ERROR:", error?.response?.body || error);
+    console.error("[/api/amcinova/sitebuilder/checkout] ERROR:", error?.response?.body || error);
     return res.status(500).json({ ok: false, error: "Betaling starten mislukt" });
+  }
+}
+
+app.post("/api/amcinova/sitebuilder/checkout", createSiteBuilderCheckout);
+app.post("/api/corenova/sitebuilder/checkout", createSiteBuilderCheckout);
+
+app.post("/api/amcinova/sitebuilder/publication-request", async (req, res) => {
+  const originalLeadId = cleanText(req.body?.leadId || "", 80);
+  const paymentId = cleanText(req.body?.paymentId || "", 100);
+  const name = cleanName(req.body?.name || "");
+  const email = cleanEmail(req.body?.email || "");
+  const phone = cleanPhone(req.body?.phone || "");
+  const packageLabel = cleanText(req.body?.packageLabel || "", 120);
+  const buildTypeLabel = cleanText(req.body?.buildTypeLabel || "", 120);
+  const website = cleanText(req.body?.website || "", 220);
+  const projectName = cleanText(req.body?.projectName || "Site Builder concept", 140);
+  const projectMode = cleanSlug(req.body?.projectMode || "sitebuilder", 60);
+  const projectCategory = cleanSlug(req.body?.projectCategory || "unknown", 60);
+  const project = req.body?.project && typeof req.body.project === "object" ? req.body.project : {};
+
+  if (!originalLeadId && !email && !phone) {
+    return res.status(400).json({ ok: false, error: "Lead, e-mail of telefoon is verplicht." });
+  }
+
+  if (!hasDatabase()) {
+    return res.status(503).json({ ok: false, error: "Supabase is niet gekoppeld." });
+  }
+
+  const requestId = randomUUID();
+  const message = [
+    "Publicatie aangevraagd vanuit Site Builder.",
+    `Project: ${projectName}`,
+    packageLabel ? `Pakket: ${packageLabel}` : "",
+    buildTypeLabel ? `Type: ${buildTypeLabel}` : "",
+    website ? `Bestaande website: ${website}` : "",
+    paymentId ? `Betaling: ${paymentId}` : "",
+  ].filter(Boolean).join("\n");
+
+  const row = {
+    lead_id: requestId,
+    site: "agents.amcinova.com",
+    source: "amcinova",
+    medium: "sitebuilder",
+    campaign: "publication-request",
+    name: name || null,
+    email: email || null,
+    phone: phone || null,
+    message,
+    status: "publication_requested",
+    metadata: {
+      originalLeadId: originalLeadId || null,
+      paymentId: paymentId || null,
+      packageLabel: packageLabel || null,
+      buildTypeLabel: buildTypeLabel || null,
+      website: website || null,
+      projectName,
+      projectMode,
+      projectCategory,
+      project,
+      requestedAt: new Date().toISOString(),
+    },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    await supabaseRequest("corenova_campaign_leads", {
+      method: "POST",
+      body: row,
+      prefer: "return=minimal",
+    });
+    return res.json({ ok: true, requestId });
+  } catch (error) {
+    console.error("[/api/amcinova/sitebuilder/publication-request] ERROR:", error.message);
+    return res.status(500).json({ ok: false, error: "Publicatieaanvraag opslaan mislukt." });
   }
 });
 
