@@ -73,7 +73,6 @@ async function supabaseRequest(table, { method = "POST", query = "", body = null
     method,
     headers: {
       apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
       ...(prefer ? { Prefer: prefer } : {}),
     },
@@ -121,7 +120,7 @@ async function recordPayment(payment, { checkoutUrl = "" } = {}) {
   const email = metadata.email || null;
   const amount = payment.amount || {};
 
-  await upsertRecord("guardtap_payments", {
+  await upsertRecord("amcinova_payments", {
     mollie_payment_id: payment.id,
     plan,
     status: payment.status || "open",
@@ -323,7 +322,7 @@ app.use(express.static(path.join(__dirname, "public"))); // serveert /public
 app.get("/", (_req, res) => {
   res.json({
     ok: true,
-    service: "corenova-backend",
+    service: "amcinova-backend",
     routes: [
       "GET /",
       "GET /health",
@@ -369,68 +368,35 @@ app.get("/api/admin/overview", async (req, res) => {
   if (!hasAdminAccess(req)) {
     return res.status(401).json({ ok: false, error: "Admincode klopt niet" });
   }
-
   if (!hasDatabase()) {
     return res.status(503).json({ ok: false, error: "Supabase is niet gekoppeld" });
   }
-
   try {
-    const [payments, commissions, subscribers, affiliates, campaigns] = await Promise.all([
-      supabaseRequest("guardtap_payments", {
-        method: "GET",
-        query: "?select=*&order=created_at.desc&limit=500",
-      }),
-      supabaseRequest("guardtap_referral_commissions", {
-        method: "GET",
-        query: "?select=*&order=created_at.desc&limit=500",
-      }),
-      supabaseRequest("guardtap_email_subscribers", {
-        method: "GET",
-        query: "?select=*&order=created_at.desc&limit=500",
-      }),
-      supabaseRequest("guardtap_affiliates", {
-        method: "GET",
-        query: "?select=*&order=created_at.desc&limit=500",
-      }).catch((error) => {
-        console.warn("[admin] Affiliates nog niet beschikbaar:", error.message);
-        return [];
-      }),
-      supabaseRequest("guardtap_campaigns", {
-        method: "GET",
-        query: "?select=*&order=updated_at.desc&limit=20",
-      }).catch((error) => {
-        console.warn("[admin] Campaigns nog niet beschikbaar:", error.message);
-        return [];
-      }),
-    ]);
-
+    const payments = await supabaseRequest("amcinova_payments", {
+      method: "GET",
+      query: "?select=*&order=created_at.desc&limit=500",
+    });
     const paidPayments = (payments || []).filter((row) => row.status === "paid");
-    const pendingCommissions = (commissions || []).filter((row) => row.status === "pending");
-    const pendingTotal = pendingCommissions.reduce((sum, row) => sum + Number(row.commission_value || 0), 0);
-    const payouts = addAffiliateDataToPayouts(buildPayoutOverview(payments || [], commissions || []), affiliates || []);
-    const readyPayouts = payouts.filter((row) => row.ready);
-    const readyPayoutTotal = readyPayouts.reduce((sum, row) => sum + Number(row.total || 0), 0);
-
     return res.json({
       ok: true,
       summary: {
         payments: payments?.length || 0,
         paidPayments: paidPayments.length,
-        commissions: commissions?.length || 0,
-        pendingCommissions: pendingCommissions.length,
-        pendingTotal: pendingTotal.toFixed(2),
-        payoutAffiliates: payouts.length,
-        readyPayouts: readyPayouts.length,
-        readyPayoutTotal: readyPayoutTotal.toFixed(2),
-        subscribers: subscribers?.length || 0,
+        commissions: 0,
+        pendingCommissions: 0,
+        pendingTotal: "0.00",
+        payoutAffiliates: 0,
+        readyPayouts: 0,
+        readyPayoutTotal: "0.00",
+        subscribers: 0,
       },
       payments: payments || [],
-      commissions: commissions || [],
-      payouts,
-      affiliates: affiliates || [],
-      campaigns: campaigns || [],
-      campaign: (campaigns || []).find((row) => row.active) || (campaigns || [])[0] || null,
-      subscribers: subscribers || [],
+      commissions: [],
+      payouts: [],
+      affiliates: [],
+      campaigns: [],
+      campaign: null,
+      subscribers: [],
     });
   } catch (error) {
     console.error("[/api/admin/overview] ERROR:", error.message);
@@ -438,57 +404,15 @@ app.get("/api/admin/overview", async (req, res) => {
   }
 });
 
-app.get("/api/campaign", async (_req, res) => {
-  if (!hasDatabase()) {
-    return res.json({ ok: true, campaign: null });
-  }
-
-  try {
-    const rows = await supabaseRequest("guardtap_campaigns", {
-      method: "GET",
-      query: "?active=eq.true&select=*&order=updated_at.desc&limit=1",
-    });
-    return res.json({ ok: true, campaign: rows?.[0] || null });
-  } catch (error) {
-    console.warn("[/api/campaign] Geen campagne beschikbaar:", error.message);
-    return res.json({ ok: true, campaign: null });
-  }
+app.get("/api/campaign", (_req, res) => {
+  return res.json({ ok: true, campaign: null });
 });
 
-app.post("/api/admin/campaign", async (req, res) => {
+app.post("/api/admin/campaign", (req, res) => {
   if (!hasAdminAccess(req)) {
     return res.status(401).json({ ok: false, error: "Admincode klopt niet" });
   }
-
-  const title = cleanText(req.body?.title, 80);
-  const body = cleanText(req.body?.body, 260);
-  const buttonText = cleanText(req.body?.buttonText, 40);
-  const buttonUrl = cleanUrl(req.body?.buttonUrl);
-  const active = req.body?.active !== false;
-
-  if (!title || !body) {
-    return res.status(400).json({ ok: false, error: "Titel en tekst zijn verplicht." });
-  }
-
-  if (buttonText && !buttonUrl) {
-    return res.status(400).json({ ok: false, error: "Gebruik een geldige link met https:// als je een knop gebruikt." });
-  }
-
-  const saved = await upsertRecord("guardtap_campaigns", {
-    campaign_id: "main",
-    title,
-    body,
-    button_text: buttonText || null,
-    button_url: buttonUrl || null,
-    active,
-    updated_at: new Date().toISOString(),
-  }, "campaign_id");
-
-  if (!saved) {
-    return res.status(500).json({ ok: false, error: "Campagne opslaan mislukt." });
-  }
-
-  return res.json({ ok: true, campaign: saved?.[0] || null });
+  return res.status(410).json({ ok: false, error: "De oude GuardTap-campagnefunctie is verwijderd." });
 });
 
 app.post("/api/agent/track", async (req, res) => {
@@ -516,7 +440,7 @@ app.post("/api/agent/track", async (req, res) => {
 
   if (hasDatabase()) {
     try {
-      await supabaseRequest("corenova_campaign_events", {
+      await supabaseRequest("amcinova_campaign_events", {
         method: "POST",
         body: row,
         prefer: "return=minimal",
@@ -642,7 +566,7 @@ app.post("/api/agent/lead", async (req, res) => {
   }
 
   try {
-    await supabaseRequest("corenova_campaign_leads", {
+    await supabaseRequest("amcinova_campaign_leads", {
       method: "POST",
       body: row,
       prefer: "return=minimal",
@@ -666,14 +590,14 @@ app.get("/api/agent/overview", async (req, res) => {
 
   try {
     const [events, leads] = await Promise.all([
-      supabaseRequest("corenova_campaign_events", {
+      supabaseRequest("amcinova_campaign_events", {
         method: "GET",
         query: "?select=*&order=created_at.desc&limit=1000",
       }).catch((error) => {
         console.warn("[agent] Events nog niet beschikbaar:", error.message);
         return [];
       }),
-      supabaseRequest("corenova_campaign_leads", {
+      supabaseRequest("amcinova_campaign_leads", {
         method: "GET",
         query: "?select=*&order=created_at.desc&limit=1000",
       }).catch((error) => {
@@ -932,7 +856,6 @@ async function createSiteBuilderCheckout(req, res) {
 }
 
 app.post("/api/amcinova/sitebuilder/checkout", createSiteBuilderCheckout);
-app.post("/api/corenova/sitebuilder/checkout", createSiteBuilderCheckout);
 
 app.post("/api/amcinova/sitebuilder/publication-request", async (req, res) => {
   const originalLeadId = cleanText(req.body?.leadId || "", 80);
@@ -994,7 +917,7 @@ app.post("/api/amcinova/sitebuilder/publication-request", async (req, res) => {
   };
 
   try {
-    await supabaseRequest("corenova_campaign_leads", {
+    await supabaseRequest("amcinova_campaign_leads", {
       method: "POST",
       body: row,
       prefer: "return=minimal",
@@ -1242,5 +1165,5 @@ app.post("/mollie/webhook", async (req, res) => {
 
 // ==== Start server ====
 app.listen(PORT, () => {
-  console.log(`CoreNova server running on ${BASE_URL} (port ${PORT})`);
+  console.log(`AMCInova server running on ${BASE_URL} (port ${PORT})`);
 });
