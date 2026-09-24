@@ -2,6 +2,7 @@
 
 import "dotenv/config";
 import express from "express";
+import { registerQuoteRoutes } from "./quote-routes.mjs";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -314,6 +315,7 @@ app.use(cors({
     return callback(null, false);
   },
 }));
+registerQuoteRoutes(app, { json: express.json });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
 app.use(express.static(path.join(__dirname, "public"))); // serveert /public
