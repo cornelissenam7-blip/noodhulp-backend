@@ -1,3 +1,4 @@
+import {proposeQuote} from './quote-ai.mjs';
 import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,6 +48,14 @@ export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   async function db(query,{method='GET',body,table='amcinova_quotes'}={}){if(!dbUrl||!dbKey)throw fault(503,'Online offerteopslag is nog niet ingesteld.');let response;try{response=await fetchImpl(`${dbUrl}/rest/v1/${table}${query}`,{method,headers:{apikey:dbKey,...(dbKey.startsWith('eyJ')?{Authorization:`Bearer ${dbKey}`} : {}),'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)})}catch{throw fault(503,'De database is niet bereikbaar. Je invoer blijft in beeld.')}if(!response.ok){if(response.status===409)throw fault(409,'Deze offerte is inmiddels gewijzigd. Open de nieuwste versie vanuit Beheer.');throw fault(503,'De database kan de offerte niet verwerken. Controleer of het project actief is en de offertetabel is aangemaakt.')}return response.status===204?[]:response.json()}
   const handle=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{await fn(req,res)}catch(e){res.status(e.status||500).json({ok:false,error:e.status?e.message:'Offerteverwerking mislukt.'})}};
   const requireAdmin=req=>{if(!admin(req))throw fault(401,'Log in via het bestaande beheer.');};
+  let aiWindow=0,aiCount=0,aiBusy=false;
+  app.post(prefix+'/:id/proposal',json({limit:'40kb'}),handle(async(req,res)=>{
+    grant(req,req.params.id);
+    if(now()-aiWindow>=3600000){aiWindow=now();aiCount=0;}
+    if(aiBusy||aiCount>=30)throw fault(429,'Even wachten: de AI is bezig of het uurlimiet is bereikt.');
+    aiBusy=true;aiCount++;
+    try{res.json({ok:true,proposal:await proposeQuote(req.body,{env,fetchImpl})});}finally{aiBusy=false;}
+  }));
   app.post(prefix+'/session',json({limit:'8kb'}),handle(async(req,res)=>{
     requireAdmin(req);if(!secret)throw fault(503,'Offerteopslag is nog niet ingesteld.');
     let id,leadId=null,row=null;
