@@ -1,4 +1,5 @@
 import {proposeQuote} from './quote-ai.mjs';
+import {registerAgentRoutes} from './agent-ai.mjs';
 import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,6 +48,7 @@ export function validateSnapshot(input){
 
 export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,now=()=>Date.now()}={}){
   if(!json)throw Error('Pass express.json as json.');
+  registerAgentRoutes(app,{json,env,fetchImpl,now});
   const prefix='/api/agent/quotes';
   const dbUrl=(env.SUPABASE_URL||'').replace(/\/$/,''),dbKey=env.SUPABASE_SERVICE_ROLE_KEY||'',adminKey=(env.ADMIN_KEY||'').trim();
   const secret=env.QUOTE_SIGNING_SECRET||adminKey;
