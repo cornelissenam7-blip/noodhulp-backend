@@ -10,6 +10,15 @@ const text=(v,max=250)=>{if(typeof v!=='string'||v.length>max)throw fault(400,'O
 const num=(v,max=100000)=>{if(typeof v!=='number'&&typeof v!=='string')throw fault(400,'Ongeldig bedrag of aantal.');const n=Number(v);if(!Number.isFinite(n)||n<0||n>max)throw fault(400,'Bedragen en aantallen moeten binnen het toegestane bereik liggen.');return n};
 const cents=n=>Math.round((n+Number.EPSILON)*100);
 const rows=(v,width)=>{if(!Array.isArray(v)||v.length>200||v.some(r=>!Array.isArray(r)||r.length!==width))throw fault(400,'Ongeldige offerteregels.');return v};
+function aiState(input){
+ if(input==null)return null;
+ const description=text(input.description,6000);let proposal=null;
+ if(input.proposal!=null){const p=input.proposal;
+ const list=v=>{if(!Array.isArray(v)||v.length>100)throw fault(400,'Ongeldig AI-voorstel.');return v};
+ proposal={summary:text(p.summary,500),questions:list(p.questions).map(v=>text(v,500)),suggestions:list(p.suggestions||[]).map(v=>text(v,500)),lines:list(p.lines).map(l=>({catalogId:text(l.catalogId,40),quantity:l.quantity===null?null:num(l.quantity),heightMm:l.heightMm===null?null:num(l.heightMm),widthMm:l.widthMm===null?null:num(l.widthMm),detail:text(l.detail,240)}))};
+ }
+ return{description,proposal};
+}
 
 export function validateSnapshot(input){
   if(!input||typeof input!=='object'||!kinds.includes(input.kind)||!input.values||typeof input.values!=='object')throw fault(400,'Ongeldige offerte.');
@@ -33,7 +42,7 @@ export function validateSnapshot(input){
     const subtotal=labor+material+Math.round(material*markup/100);totalCents=subtotal+Math.round(subtotal*vat/100);
   }
   if(!Number.isSafeInteger(totalCents)||totalCents>100000000000)throw fault(400,'Offertebedrag is te groot.');
-  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand},totalCents};
+  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand,ai:aiState(input.ai)},totalCents};
 }
 
 export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,now=()=>Date.now()}={}){
