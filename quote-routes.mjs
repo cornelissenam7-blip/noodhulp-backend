@@ -5,7 +5,7 @@ import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const kinds=['Keukenrenovatie','Schilderwerk','Stukadoorswerk','Timmerwerk','Overige werkzaamheden'];
-const fields=['drawingChamferCorner','drawingChamferSize','drawingDescription','drawingShape','drawingWidth','drawingHeight','drawingDepthA','drawingDepthB','drawingThickness','drawingNotes','drawingCut','drawingCutX','drawingCutY','drawingCutW','drawingCutH','drawingCabinetDepth','drawingBoard','drawingShelves','drawingDoors','job','customer','company','quoteNumber','quoteEmail','quotePhone','quoteAddress','quoteNotes','basis','hours','rate','area','areaRate','markup','vat','frontModel','frontRate','kitchenVat'];
+const fields=['drawingCorners','drawingDepthC','drawingLeftHeight','drawingChamferCorner','drawingChamferSize','drawingDescription','drawingShape','drawingWidth','drawingHeight','drawingDepthA','drawingDepthB','drawingThickness','drawingNotes','drawingCut','drawingCutX','drawingCutY','drawingCutW','drawingCutH','drawingCabinetDepth','drawingBoard','drawingShelves','drawingDoors','job','customer','company','quoteNumber','quoteEmail','quotePhone','quoteAddress','quoteNotes','basis','hours','rate','area','areaRate','markup','vat','frontModel','frontRate','kitchenVat'];
 const brandFields=['id','name','address','postcode','phone','email','website','kvk','vat','iban','color','logo','terms'];
 const fault=(status,message)=>Object.assign(new Error(message),{status});
 const text=(v,max=250)=>{if(typeof v!=='string'||v.length>max)throw fault(400,'Ongeldige tekst of te lange invoer.');return v};
@@ -24,7 +24,7 @@ function aiState(input){
 
 export function validateSnapshot(input){
   if(!input||typeof input!=='object'||!kinds.includes(input.kind)||!input.values||typeof input.values!=='object')throw fault(400,'Ongeldige offerte.');
-  const values={};for(const key of fields)if(input.values[key]!==undefined)values[key]=text(input.values[key],key==='drawingDescription'?4000:key==='quoteNotes'?2500:250);
+  const values={};for(const key of fields)if(input.values[key]!==undefined)values[key]=text(input.values[key],key==='drawingCorners'?6000:key==='drawingDescription'?4000:key==='quoteNotes'?2500:250);
   const materials=rows(input.materials,2).map(([n,p])=>[text(n,180),String(num(p,10000000))]);
   const fronts=rows(input.fronts,3).map(r=>r.map((v,i)=>{const n=num(v,i===2?10000:100000);if(!Number.isInteger(n))throw fault(400,'Frontmaten en aantallen moeten hele getallen zijn.');return String(n)}));
   const items=rows(input.items,5).map(([name,unit,price,qty,detail])=>{if(!['stuk','m','post'].includes(unit))throw fault(400,'Ongeldige eenheid.');const q=num(qty);if(unit==='stuk'&&!Number.isInteger(q))throw fault(400,'Een aantal stuks moet een geheel getal zijn.');return[text(name,180),unit,String(num(price)),String(q),text(detail,240)]});
