@@ -5,7 +5,7 @@ import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const kinds=['Keukenrenovatie','Schilderwerk','Stukadoorswerk','Timmerwerk','Overige werkzaamheden'];
-const fields=['drawingDescription','drawingShape','drawingWidth','drawingHeight','drawingDepthA','drawingDepthB','drawingThickness','drawingNotes','drawingCut','drawingCutX','drawingCutY','drawingCutW','drawingCutH','drawingCabinetDepth','drawingBoard','drawingShelves','drawingDoors','job','customer','company','quoteNumber','quoteEmail','quotePhone','quoteAddress','quoteNotes','basis','hours','rate','area','areaRate','markup','vat','frontModel','frontRate','kitchenVat'];
+const fields=['drawingChamferCorner','drawingChamferSize','drawingDescription','drawingShape','drawingWidth','drawingHeight','drawingDepthA','drawingDepthB','drawingThickness','drawingNotes','drawingCut','drawingCutX','drawingCutY','drawingCutW','drawingCutH','drawingCabinetDepth','drawingBoard','drawingShelves','drawingDoors','job','customer','company','quoteNumber','quoteEmail','quotePhone','quoteAddress','quoteNotes','basis','hours','rate','area','areaRate','markup','vat','frontModel','frontRate','kitchenVat'];
 const brandFields=['id','name','address','postcode','phone','email','website','kvk','vat','iban','color','logo','terms'];
 const fault=(status,message)=>Object.assign(new Error(message),{status});
 const text=(v,max=250)=>{if(typeof v!=='string'||v.length>max)throw fault(400,'Ongeldige tekst of te lange invoer.');return v};
