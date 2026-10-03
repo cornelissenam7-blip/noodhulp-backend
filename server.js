@@ -348,7 +348,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, version: "digital-research-20261003-2" }));
 
 app.get("/debug/config", (_req, res) => {
   res.json({
