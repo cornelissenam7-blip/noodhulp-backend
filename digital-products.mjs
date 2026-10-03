@@ -1,14 +1,16 @@
 import {publicUrl} from './shop-research.mjs';
 const text={type:'string'},array=items=>({type:'array',items}),object=properties=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
-const problemSchema=object({title:text,audience:text,problem:text,evidence:text,source:text});
-const problemsSchema=object({summary:text,problems:array(problemSchema)});
+const boundedText=maxLength=>({type:'string',minLength:1,maxLength});
+const problemSchema=object({title:boundedText(160),audience:boundedText(2000),problem:boundedText(2000),evidence:boundedText(2000),source:boundedText(2000)});
+const problemsSchema=object({summary:boundedText(3000),problems:{...array(problemSchema),minItems:10,maxItems:10}});
 const solutionSchema=object({name:text,format:text,promise:text,summary:text,contents:array(object({title:text,description:text})),sample:text,buildSteps:array(text),validation:array(text),limitations:array(text)});
 const fail=(message,status=502)=>Object.assign(new Error(message),{status});
 const validText=(v,max=3000)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 function problemValid(p){return p&&['title','audience','problem','evidence','source'].every(k=>validText(p[k],k==='title'?160:2000))&&publicUrl(p.source);}
 function researchSources(response){const sources=new Set();for(const item of response.output||[]){for(const s of item.action?.sources||[])if(publicUrl(s.url))sources.add(publicUrl(s.url));for(const c of item.content||[])for(const a of c.annotations||[])if(a.type==='url_citation'&&publicUrl(a.url))sources.add(publicUrl(a.url));}return sources;}
 export function verifyProblems(raw,response,excluded=[]){
- if(!validText(raw?.summary)||!Array.isArray(raw.problems)||raw.problems.length!==10)throw fail('Het onderzoek leverde nog geen tien volledige problemen op. Probeer opnieuw.');
+ if(!validText(raw?.summary))throw fail('Het onderzoek mist een geldige samenvatting. Je bewaarde resultaten blijven beschikbaar.');
+ if(!Array.isArray(raw.problems)||raw.problems.length!==10)throw fail('Het onderzoek leverde '+(Array.isArray(raw.problems)?raw.problems.length:0)+' in plaats van tien problemen op. Je bewaarde resultaten blijven beschikbaar.');
  if(!(response.output||[]).some(x=>x.type==='web_search_call'&&x.status==='completed'))throw fail('Het probleemonderzoek is niet met webbronnen onderbouwd. Probeer opnieuw.');
  const sources=researchSources(response);
  const normalized=x=>String(x).toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');const titles=new Set(excluded.map(normalized));const problems=raw.problems.map((p,i)=>{const key=normalized(p?.title||'');if(!problemValid(p)||titles.has(key)||!sources.has(publicUrl(p.source)))throw fail('Het onderzoek bevat een eerder onderwerp, herhaling of ontbrekende bron. Je bewaarde resultaten blijven beschikbaar; probeer een nieuwe ronde.');titles.add(key);return{id:String(i+1),title:p.title,audience:p.audience,problem:p.problem,evidence:p.evidence,source:publicUrl(p.source)};});
