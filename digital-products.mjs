@@ -1,5 +1,6 @@
 import {publicUrl} from './shop-research.mjs';
 import {randomInt} from 'node:crypto';
+import {marketBrief,offerBrief,offerSchema,verifyOffer} from './digital-offer.mjs';
 const text={type:'string'},array=items=>({type:'array',items}),object=properties=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
 const boundedText=maxLength=>({type:'string',minLength:1,maxLength});
 const problemSchema=object({title:boundedText(160),audience:boundedText(2000),problem:boundedText(2000),evidence:boundedText(2000),source:boundedText(2000)});
@@ -37,7 +38,13 @@ export async function researchDigital(fields,{env=process.env,fetchImpl=fetch}={
  if(!response.ok)throw fail('Het digitale-productonderzoek is niet beschikbaar. Probeer later opnieuw.');const data=await response.json();if(data.status!=='completed')throw fail('Het onderzoek is nog niet volledig afgerond. Probeer opnieuw.');const content=(data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('');let raw;if(parse){try{raw=JSON.parse(content);}catch{throw fail('Het onderzoek gaf geen leesbaar resultaat.');}}
  return {raw,data,content};
  }
- if(solving)return verifySolution((await request(body)).raw,problem);
+ if(solving){
+  const evidence=await request({model:body.model,store:false,instructions:common+marketBrief,input:JSON.stringify(input),max_output_tokens:6500,tools:[{type:'web_search'}],tool_choice:'required',include:['web_search_call.action.sources']},false);
+  const urls=[...researchSources(evidence.data)].filter(url=>url.length<=2000).slice(0,200);
+  if(!(evidence.data.output||[]).some(x=>x.type==='web_search_call'&&x.status==='completed')||!evidence.content.trim())throw fail('Het concurrentieonderzoek kon niet worden afgerond. Je vorige uitwerking blijft bewaard.');
+  const proposal=await request({...body,instructions:instructions+' '+offerBrief,input:JSON.stringify({...input,marketResearch:evidence.content,verifiedSourceUrls:urls}),max_output_tokens:11000,text:{format:{type:'json_schema',name:'digital_offer',strict:true,schema:offerSchema(solutionSchema,urls)}}});
+  return verifySolution(verifyOffer(proposal.raw,urls),problem);
+ }
  const diversity=' Digitale producten is de VORM van een mogelijke oplossing (werkboek, template, checklist, cursus), NIET de niche computerproblemen. Zonder specifieke niche: zoek breed over minstens tien verschillende dagelijkse situaties, bijvoorbeeld huishouden, leren, zelfstandig werken, hobby, reizen, taal, administratie, koken, organiseren en gezinsplanning. Zoek vijftien kandidaatproblemen met ten minste vijf onafhankelijke bronpagina’s zodat tien sterke opties gekozen kunnen worden. Onderwerpen over hetzelfde kerndoel tellen als één probleem: bestanden terugvinden versus moeilijk zoeken is hetzelfde; data kwijt door storing versus wissen is hetzelfde. Eerder onderzochte onderwerpen zijn uitgesloten, ook als je een andere doelgroep of oorzaak noemt.';
  const areas=['weekmenu en koken','tuinieren op een balkon','een verhuizing voorbereiden','een nieuwe taal oefenen','studieplanning','een familievakantie organiseren','huisdieren verzorgen','fotografie leren','een feest organiseren','kleding onderhouden','creatieve hobbyprojecten','samenwerken in een vrijwilligersvereniging','sollicitaties voorbereiden','huishoudelijke taken verdelen','kamperen voorbereiden','een instrument leren spelen','cadeaus plannen','kleine klusprojecten organiseren','een boekenclub organiseren','een sporttraining plannen','hergebruik en repareren','een familiegeschiedenis vastleggen','presentaties voorbereiden','bordspellen leren','woonruimte opruimen','een thuiswerkplek organiseren','recepten aanpassen aan kleinere porties','musea bezoeken met kinderen','wandelen en uitstapjes plannen','een lokale buurtactiviteit organiseren'];
  for(let i=areas.length-1;i>0;i--){const j=randomInt(i+1);[areas[i],areas[j]]=[areas[j],areas[i]];}
