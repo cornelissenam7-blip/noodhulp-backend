@@ -95,11 +95,16 @@ export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   const expiresAt=now()+3600000,body=Buffer.from(JSON.stringify({aud:'amcinova-agents',id:randomUUID(),exp:expiresAt})).toString('base64url');res.json({token:body+'.'+sign(body),expiresAt});
  }));
  let busy=false,start=now(),count=0;
- app.post(prefix+'/generate',json({limit:'32kb'}),handle(async(req,res)=>{
+ const authorize=req=>{
   const token=String(req.headers.authorization||'');if(!secret||!token.startsWith('Bearer ')||token.length>4096)throw fail(401,'Verbind opnieuw via Beheer.');
   const [body,sig,...extra]=token.slice(7).split('.');if(extra.length||!body||!sig||!eq(sig,sign(body)))throw fail(401,'Ongeldige toegang.');
   let grant;try{grant=JSON.parse(Buffer.from(body,'base64url').toString())}catch{throw fail(401,'Ongeldige toegang.');}
   if(grant.aud!=='amcinova-agents'||!Number.isFinite(grant.exp)||grant.exp<=now())throw fail(401,'Je toegang is verlopen. Verbind opnieuw via Beheer.');
+ };
+ // The hosting library uses the same existing admin grant; it never receives an admin password.
+ app.get(prefix+'/library-access',handle(async(req,res)=>{authorize(req);res.json({ok:true,workspace:'amcinova-admin'});}));
+ app.post(prefix+'/generate',json({limit:'32kb'}),handle(async(req,res)=>{
+  authorize(req);
   cleanAgentInput(req.body);if(now()-start>=3600000){start=now();count=0;}if(busy||count>=30)throw fail(429,'De AI is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
   busy=true;count++;try{res.json({ok:true,result:await generateAgent(req.body,{env,fetchImpl})});}finally{busy=false;}
  }));
