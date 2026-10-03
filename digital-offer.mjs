@@ -8,14 +8,14 @@ export const offerBrief=`Ontwerp een samenhangende funnel: een gratis weggever d
 export function offerSchema(base,urls){
  const source=urls.length?{type:'string',enum:urls}:str;
  return object({...base.properties,
-  market:object({summary:str,amazonNote:str,competitors:list(object({seller:str,name:str,format:str,contents:str,priceObserved:str,reviewFindings:str,difference:str,source})),freeAlternatives:list(object({name:str,description:str,source}),0,4)}),
+  market:object({summary:str,amazonNote:str,competitors:list(object({seller:str,name:str,format:str,contents:str,pricingStatus:{type:'string',enum:['free','priced','unknown']},priceObserved:str,reviewFindings:str,reviewSource:{type:'string',enum:['',...urls]},difference:str,source})),freeAlternatives:list(object({name:str,description:str,source}),0,4)}),
   decision:object({verdict:{type:'string',enum:['paid_candidate','free_only','not_recommended','insufficient_evidence']},rationale:str,distinctiveValue:str,validationTest:str,stopCriteria:str}),
   tiers:object({free:tier,standard:tier,premium:tier}),
   funnel:list(object({stage:str,offer:str,nextStep:str}),3,6)
  });
 }
 function validateShape(value,schema){
- if(schema.type==='string')return typeof value==='string'&&value.trim().length>0&&value.length<=(schema.maxLength||16000)&&(!schema.enum||schema.enum.includes(value));
+ if(schema.type==='string')return typeof value==='string'&&(value.trim().length>0||schema.enum?.includes(''))&&value.length<=(schema.maxLength||16000)&&(!schema.enum||schema.enum.includes(value));
  if(schema.type==='array')return Array.isArray(value)&&value.length>=(schema.minItems||0)&&value.length<=(schema.maxItems||30)&&value.every(v=>validateShape(v,schema.items));
  return value&&typeof value==='object'&&!Array.isArray(value)&&schema.required.every(k=>validateShape(value[k],schema.properties[k]));
 }
@@ -26,8 +26,10 @@ export function verifyOffer(raw,urls){
  if(references.some(r=>!urls.includes(publicUrl(r.source))))throw Object.assign(new Error('De aanbodvergelijking bevat een onbevestigde bron.'),{status:502});
  const amazon=raw.market.competitors.some(c=>/(^|\.)amazon\.(nl|com|co\.uk|de|fr|es|it|com\.be)$/.test(new URL(c.source).hostname));
  raw.market.amazonStatus=amazon?'Productpagina gevonden':'Geen Amazon-productpagina bevestigd';
+ if(!amazon)raw.market.amazonNote='In dit onderzoek is geen concrete Amazon-productpagina bevestigd. Dat betekent niet dat Amazon niets vergelijkbaars aanbiedt; deze vergelijking blijft open.';
+ for(const c of raw.market.competitors){if(!c.reviewSource)c.reviewFindings='Geen klantreviews bevestigd in dit onderzoek.';if(c.pricingStatus==='unknown')c.priceObserved='Onbekend; controleer bij de aanbieder.';if(c.pricingStatus==='free')c.priceObserved='Als gratis aangemerkt in het onderzoek; controleer voorwaarden bij de aanbieder.';}
  raw.market.checkedAt=new Date().toISOString();
- if(raw.decision.verdict==='paid_candidate'&&raw.market.competitors.length<2){raw.decision.verdict='insufficient_evidence';raw.decision.rationale='Er zijn minder dan twee vergelijkbare aanbiedingen bevestigd. Eerst extra concurrentieonderzoek; verkoopbaarheid is nog niet beoordeeld.';}
+ if(raw.decision.verdict==='paid_candidate'&&(raw.market.competitors.length<2||!raw.market.competitors.some(c=>c.pricingStatus==='priced'&&/\d/.test(c.priceObserved)))){raw.decision.verdict='insufficient_evidence';raw.decision.rationale='Er zijn onvoldoende vergelijkbare aanbiedingen met een waargenomen betaalde prijs bevestigd. Gratis alternatieven of onbekende prijzen bewijzen geen betalingsbereidheid. De drie niveaus zijn voorlopig; eerst verder onderzoek en een vraagtest.';}
  raw.tiers.free.priceHypothesis='Gratis';
  raw.offerVersion=1;
  return raw;
