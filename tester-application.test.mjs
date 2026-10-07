@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {testerApplication} from './tester-application.mjs';
+test('registration cannot grant access or forge recipient',()=>{const a=testerApplication({product:'sitebuilder',goal:'TEST',contactConsent:true,status:'active',email:'forged'},'own@example.invalid');assert.equal(a.status,'interest');assert.equal(a.email,'own@example.invalid');assert.equal(a.expires_at,undefined);});
+test('registration rejects missing consent, unknown product and oversized goal',()=>{for(const change of [{contactConsent:false},{product:'admin'},{goal:''},{goal:'a'.repeat(1501)}])assert.throws(()=>testerApplication({product:'offertetool',goal:'TEST',contactConsent:true,...change},'own@example.invalid'));});
