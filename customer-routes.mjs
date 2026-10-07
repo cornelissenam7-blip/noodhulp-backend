@@ -1,9 +1,10 @@
+import {customerCatalog,customerBundles,validateSelection} from './customer-catalog.mjs';
 import {generateAgent} from './agent-ai.mjs';
 import {proposeQuote} from './quote-ai.mjs';
 import {proposeDrawing} from './drawing-ai.mjs';
 import {randomUUID} from 'node:crypto';
 import {validateSnapshot} from './quote-routes.mjs';
-const products=new Set(['sitebuilder','offertetool','promotie']);
+const products=new Set(customerCatalog.map(p=>p.code));
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fault=(status,message)=>Object.assign(new Error(message),{status});
 export function customerDocument(input,userId){
@@ -29,9 +30,9 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   if(!r.ok)throw fault(r.status===401||r.status===403?401:503,'Je aanmelding kon niet worden gecontroleerd. Meld je opnieuw aan.');
   const user=await r.json();if(!uuid.test(user.id))throw fault(401,'Ongeldige aanmelding.');return{id:user.id,email:user.email||'',token};
  }
- async function db(user,table,query='',body){
+ async function db(user,table,query='',body,upsert=false){
   // Public key + verified customer JWT: RLS remains active, never a service-role fallback.
-  const r=await fetchImpl(base+'/rest/v1/'+table+query,{method:body?'POST':'GET',headers:{apikey:key,Authorization:user.token,'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
+  const r=await fetchImpl(base+'/rest/v1/'+table+query,{method:body?'POST':'GET',headers:{apikey:key,Authorization:user.token,'Content-Type':'application/json',Prefer:upsert?'resolution=merge-duplicates,return=representation':'return=representation'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
   if(!r.ok)throw fault(r.status===409?409:r.status===403?403:503,r.status===409?'Deze versie bestaat al. Haal de nieuwste versie op.':r.status===403?'Je hebt geen actieve toegang tot dit product.':'De klantopslag is nog niet beschikbaar.');return r.status===204?[]:r.json();
  }
  async function requireProduct(u,product){
@@ -51,6 +52,8 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   aiBusy=true;aiCount++;try{const result=await(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
  }));
  app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:false});});
+ app.get('/api/customer/selection',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=selected_products');res.json({ok:true,selected:rows[0]?.selected_products||[],catalog:customerCatalog,bundles:customerBundles});}));
+ app.post('/api/customer/selection',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req),selected=validateSelection(req.body?.selected);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,selected_products:selected},true);res.json({ok:true,selected});}));
  app.get('/api/customer/me',wrap(async(req,res)=>{const u=await identity(req);const owner='?user_id=eq.'+u.id;const [access,purchases,catalog]=await Promise.all([db(u,'amcinova_customer_access',owner+'&select=product_code,status,source,expires_at,purchase_id'),db(u,'amcinova_customer_purchases',owner+'&select=id,product_code,status,amount_cents,currency,created_at&order=created_at.desc&limit=100'),db(u,'amcinova_products','?select=code,name,price_cents,currency,checkout_enabled')]);const availableProducts=[];for(const p of catalog){try{await requireProduct(u,p.code);availableProducts.push(p.code);}catch(e){if(e.status!==403)throw e;}}res.json({ok:true,user:{id:u.id,email:u.email},access,purchases,products:catalog,availableProducts});}));
  app.get('/api/customer/documents',wrap(async(req,res)=>{const u=await identity(req),product=req.query.product;if(!products.has(product))throw fault(400,'Kies een geldig product.');const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&product_code=eq.${product}&select=id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=50&offset=${offset}`);res.json({ok:true,documents:rows,nextOffset:rows.length===50?offset+50:null});}));
  app.get('/api/customer/documents/:id',wrap(async(req,res)=>{const u=await identity(req);if(!uuid.test(req.params.id))throw fault(400,'Ongeldig document.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&id=eq.${req.params.id}&select=*&limit=1`);if(!rows.length)throw fault(404,'Document niet gevonden.');res.json({ok:true,document:rows[0]});}));
