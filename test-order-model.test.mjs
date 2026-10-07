@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {testOrder} from './test-order-model.mjs';
+const input={id:'11111111-1111-4111-8111-111111111111',selected:['promotie','admaker'],method:'spread',terms:6,quoteService:0,siteService:0};
+test('test order derives identity and totals, never paid/access',()=>{const r=testOrder({...input,email:'spoof',user_id:'spoof',status:'paid',estimate:{gross:1}},{id:'verified',email:'verified@example.invalid'});assert.equal(r.user_id,'verified');assert.equal(r.email,'verified@example.invalid');assert.equal(r.status,'TEST');assert.equal(r.estimate.monthGross,3509);assert.equal(r.estimate.gross,0);});
+test('invalid test order fields rejected',()=>{for(const change of [{selected:[]},{selected:['admin']},{terms:0},{siteService:1},{method:'paid'},{id:'bad'}])assert.throws(()=>testOrder({...input,...change},{id:'x',email:'x'}));});

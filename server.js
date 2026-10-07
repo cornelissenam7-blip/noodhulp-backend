@@ -317,7 +317,7 @@ app.use(cors({
   },
 }));
 registerQuoteRoutes(app, { json: express.json });
-registerCustomerRoutes(app, { json: express.json });
+registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
 app.use(express.static(path.join(__dirname, "public"))); // serveert /public

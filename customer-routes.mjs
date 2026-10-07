@@ -3,6 +3,7 @@ import {generateAgent} from './agent-ai.mjs';
 import {proposeQuote} from './quote-ai.mjs';
 import {proposeDrawing} from './drawing-ai.mjs';
 import {randomUUID} from 'node:crypto';
+import {testOrder} from './test-order-model.mjs';
 import {validateSnapshot} from './quote-routes.mjs';
 const products=new Set(customerCatalog.map(p=>p.code));
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,7 +20,7 @@ export function isPublicKey(key){
  if(/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))return true;
  try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
 }
-export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch}={}){
+export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb}={}){
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
  const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);
  const wrap=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{if(!enabled())throw fault(503,'Klantaccounts worden voorbereid. De bestaande beheerdersomgeving blijft beschikbaar.');await fn(req,res);}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Accountopslag tijdelijk niet beschikbaar. Probeer opnieuw.'});}};
@@ -52,6 +53,8 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   aiBusy=true;aiCount++;try{const result=await(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
  }));
  app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:false});});
+ app.post('/api/customer/test-orders',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req);let row;try{row=testOrder(req.body,u);}catch(e){throw fault(400,e.message);}const query='?user_id=eq.'+u.id+'&id=eq.'+row.id;let rows=await db(u,'amcinova_test_orders',query);if(!rows.length){try{rows=await db(u,'amcinova_test_orders','',row);}catch(e){if(e.status!==409)throw e;rows=await db(u,'amcinova_test_orders',query);}}if(!rows[0])throw fault(409,'Testaanvraag niet bevestigd.');res.json({ok:true,order:rows[0]});}));
+ app.get('/api/admin/test-orders',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const orders=await adminDb('amcinova_test_orders',{method:'GET',query:'?select=*&order=created_at.desc,id.desc&limit=50&offset='+offset});res.json({ok:true,orders,nextOffset:orders.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Testaanvragen konden niet worden geladen.'});}});
  app.get('/api/customer/selection',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=selected_products');res.json({ok:true,selected:rows[0]?.selected_products||[],catalog:customerCatalog,bundles:customerBundles});}));
  app.post('/api/customer/selection',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req),selected=validateSelection(req.body?.selected);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,selected_products:selected},true);res.json({ok:true,selected});}));
  app.get('/api/customer/me',wrap(async(req,res)=>{const u=await identity(req);const owner='?user_id=eq.'+u.id;const [access,purchases,catalog]=await Promise.all([db(u,'amcinova_customer_access',owner+'&select=product_code,status,source,expires_at,purchase_id'),db(u,'amcinova_customer_purchases',owner+'&select=id,product_code,status,amount_cents,currency,created_at&order=created_at.desc&limit=100'),db(u,'amcinova_products','?select=code,name,price_cents,currency,checkout_enabled')]);const availableProducts=[];for(const p of catalog){try{await requireProduct(u,p.code);availableProducts.push(p.code);}catch(e){if(e.status!==403)throw e;}}res.json({ok:true,user:{id:u.id,email:u.email},access,purchases,products:catalog,availableProducts});}));
