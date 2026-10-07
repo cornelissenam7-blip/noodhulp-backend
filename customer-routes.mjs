@@ -26,7 +26,7 @@ export function isPublicKey(key){
  if(/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))return true;
  try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
 }
-export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb}={}){
+export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb,planAdvisor=generateAgent}={}){
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
  const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);
  const wrap=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{if(!enabled())throw fault(503,'Klantaccounts worden voorbereid. De bestaande beheerdersomgeving blijft beschikbaar.');await fn(req,res);}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Accountopslag tijdelijk niet beschikbaar. Probeer opnieuw.'});}};
@@ -50,6 +50,23 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
  }
  app.get('/api/customer/access/:product',wrap(async(req,res)=>{const u=await identity(req);await requireProduct(u,req.params.product);res.json({ok:true,user:{id:u.id,email:u.email},product:req.params.product});}));
  let aiBusy=false,aiStart=0,aiCount=0;
+ const helpLimits=new Map();
+ app.post('/api/customer/website-plan/help',json({limit:'20kb'}),wrap(async(req,res)=>{
+  const u=await identity(req),plan=websitePlan(req.body?.plan),question=req.body?.question;
+  if(typeof question!=='string'||!question.trim()||question.length>1000||Buffer.byteLength(JSON.stringify(plan))>6000)throw fault(400,'Vul een hulpvraag in (maximaal 1000 tekens) en houd je plan beknopt.');
+  const now=Date.now();for(const [id,limit] of helpLimits)if(limit.until<=now)helpLimits.delete(id);
+  const limit=helpLimits.get(u.id)||{count:0,until:now+3600000};
+  if(now-aiStart>3600000){aiStart=now;aiCount=0;}
+  if(aiBusy||aiCount>=30||limit.count>=3)throw fault(429,'De agent is bezig of het gratis hulplimiet is bereikt (3 vragen per uur). Probeer later opnieuw.');
+  aiBusy=true;aiCount++;limit.count++;helpLimits.set(u.id,limit);
+  try{
+   const result=await planAdvisor({task:'advice',fields:{'profile-name':plan.name,'profile-audience':plan.audience,'profile-offer':plan.offer,'builder-style':plan.style,'builder-pages':plan.pages,'builder-action':plan.action,'agent-instructions':'Geef beknopt advies bij dit websiteplan en beantwoord deze klantvraag: '+question.trim()+'. Maximaal drie korte adviessecties. Dit is gratis advies, geen uitvoering of persoonlijke ondersteuning. Claim geen wijzigingen, publicatie, bestelling of toezegging. Vraag nooit wachtwoorden.'}},{env,fetchImpl});
+   const help={question:question.trim(),createdAt:new Date().toISOString(),plan,result:{title:result.title,summary:result.summary,sections:result.sections,questions:result.questions}};
+   const saved={...plan,help};if(Buffer.byteLength(JSON.stringify(saved))>=16000)throw fault(502,'Het advies is te uitgebreid om te bewaren. Stel een specifiekere vraag.');
+   await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,website_plan:saved},true);
+   res.json({ok:true,help});
+  }finally{aiBusy=false;}
+ }));
  app.post('/api/customer/ai/:mode',json({limit:'100kb'}),wrap(async(req,res)=>{
   const u=await identity(req),mode=req.params.mode;
   if(!['generate','proposal','drawing'].includes(mode))throw fault(400,'Onbekend voorstel.');
