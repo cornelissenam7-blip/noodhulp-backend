@@ -1,0 +1,58 @@
+import {generateAgent} from './agent-ai.mjs';
+import {proposeQuote} from './quote-ai.mjs';
+import {proposeDrawing} from './drawing-ai.mjs';
+import {randomUUID} from 'node:crypto';
+import {validateSnapshot} from './quote-routes.mjs';
+const products=new Set(['sitebuilder','offertetool','promotie']);
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const fault=(status,message)=>Object.assign(new Error(message),{status});
+export function customerDocument(input,userId){
+ if(!input||!products.has(input.product)||!uuid.test(input.projectId)||!Number.isSafeInteger(input.revision)||input.revision<1||input.revision>1000000)throw fault(400,'Ongeldig project of versienummer.');
+ if(typeof input.name!=='string'||!input.name.trim()||input.name.length>200)throw fault(400,'Vul een projectnaam in van maximaal 200 tekens.');
+ let payload=input.payload;
+ if(!payload||typeof payload!=='object'||Array.isArray(payload)||Buffer.byteLength(JSON.stringify(payload))>1700000)throw fault(400,'Ongeldige of te grote projectinhoud.');
+ if(input.product==='offertetool')payload=validateSnapshot(payload).snapshot;
+ return {id:randomUUID(),user_id:userId,product_code:input.product,project_id:input.projectId,revision:input.revision,name:input.name.trim(),payload};
+}
+export function isPublicKey(key){
+ if(/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))return true;
+ try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
+}
+export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch}={}){
+ const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
+ const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);
+ const wrap=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{if(!enabled())throw fault(503,'Klantaccounts worden voorbereid. De bestaande beheerdersomgeving blijft beschikbaar.');await fn(req,res);}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Accountopslag tijdelijk niet beschikbaar. Probeer opnieuw.'});}};
+ async function identity(req){
+  const token=String(req.headers.authorization||'');
+  if(!/^Bearer [A-Za-z0-9._-]{20,8192}$/.test(token))throw fault(401,'Meld je aan met je eigen klantaccount.');
+  const r=await fetchImpl(base+'/auth/v1/user',{headers:{apikey:key,Authorization:token},signal:AbortSignal.timeout(12000)});
+  if(!r.ok)throw fault(r.status===401||r.status===403?401:503,'Je aanmelding kon niet worden gecontroleerd. Meld je opnieuw aan.');
+  const user=await r.json();if(!uuid.test(user.id))throw fault(401,'Ongeldige aanmelding.');return{id:user.id,email:user.email||'',token};
+ }
+ async function db(user,table,query='',body){
+  // Public key + verified customer JWT: RLS remains active, never a service-role fallback.
+  const r=await fetchImpl(base+'/rest/v1/'+table+query,{method:body?'POST':'GET',headers:{apikey:key,Authorization:user.token,'Content-Type':'application/json',Prefer:'return=representation'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
+  if(!r.ok)throw fault(r.status===409?409:r.status===403?403:503,r.status===409?'Deze versie bestaat al. Haal de nieuwste versie op.':r.status===403?'Je hebt geen actieve toegang tot dit product.':'De klantopslag is nog niet beschikbaar.');return r.status===204?[]:r.json();
+ }
+ async function requireProduct(u,product){
+  if(!products.has(product))throw fault(400,'Onbekend product.');
+  const access=await db(u,'amcinova_customer_access','?user_id=eq.'+u.id+'&product_code=eq.'+product+'&select=*');
+  const a=access[0];if(!a||a.status!=='active'||(a.expires_at&&Date.parse(a.expires_at)<=Date.now()))throw fault(403,'Je hebt geen actieve toegang tot dit product.');
+  if(a.source==='purchase'){const p=await db(u,'amcinova_customer_purchases','?user_id=eq.'+u.id+'&id=eq.'+a.purchase_id+'&product_code=eq.'+product+'&status=eq.paid&select=id,verified_at');if(!p[0]?.verified_at)throw fault(403,'Voor dit product is geen bevestigde aankoop gevonden.');}
+ }
+ app.get('/api/customer/access/:product',wrap(async(req,res)=>{const u=await identity(req);await requireProduct(u,req.params.product);res.json({ok:true,user:{id:u.id,email:u.email},product:req.params.product});}));
+ let aiBusy=false,aiStart=0,aiCount=0;
+ app.post('/api/customer/ai/:mode',json({limit:'100kb'}),wrap(async(req,res)=>{
+  const u=await identity(req),mode=req.params.mode;
+  if(!['generate','proposal','drawing'].includes(mode))throw fault(400,'Onbekend voorstel.');
+  const product=mode==='generate'?'sitebuilder':'offertetool';await requireProduct(u,product);
+  if(mode==='generate'&&!['site','advice','review'].includes(req.body?.task))throw fault(403,'Dit voorstel hoort niet bij je product.');
+  if(Date.now()-aiStart>3600000){aiStart=Date.now();aiCount=0;}if(aiBusy||aiCount>=30)throw fault(429,'De agent is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
+  aiBusy=true;aiCount++;try{const result=await(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
+ }));
+ app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:false});});
+ app.get('/api/customer/me',wrap(async(req,res)=>{const u=await identity(req);const owner='?user_id=eq.'+u.id;const [access,purchases,catalog]=await Promise.all([db(u,'amcinova_customer_access',owner+'&select=product_code,status,source,expires_at,purchase_id'),db(u,'amcinova_customer_purchases',owner+'&select=id,product_code,status,amount_cents,currency,created_at&order=created_at.desc&limit=100'),db(u,'amcinova_products','?select=code,name,price_cents,currency,checkout_enabled')]);const availableProducts=[];for(const p of catalog){try{await requireProduct(u,p.code);availableProducts.push(p.code);}catch(e){if(e.status!==403)throw e;}}res.json({ok:true,user:{id:u.id,email:u.email},access,purchases,products:catalog,availableProducts});}));
+ app.get('/api/customer/documents',wrap(async(req,res)=>{const u=await identity(req),product=req.query.product;if(!products.has(product))throw fault(400,'Kies een geldig product.');const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&product_code=eq.${product}&select=id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=50&offset=${offset}`);res.json({ok:true,documents:rows,nextOffset:rows.length===50?offset+50:null});}));
+ app.get('/api/customer/documents/:id',wrap(async(req,res)=>{const u=await identity(req);if(!uuid.test(req.params.id))throw fault(400,'Ongeldig document.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&id=eq.${req.params.id}&select=*&limit=1`);if(!rows.length)throw fault(404,'Document niet gevonden.');res.json({ok:true,document:rows[0]});}));
+ app.post('/api/customer/documents',json({limit:'1800kb'}),wrap(async(req,res)=>{const u=await identity(req),row=customerDocument(req.body,u.id);await requireProduct(u,row.product_code);const result=await db(u,'amcinova_customer_documents','',row);res.status(201).json({ok:true,document:result[0]});}));
+}
