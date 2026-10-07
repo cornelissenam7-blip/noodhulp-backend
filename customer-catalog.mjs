@@ -4,8 +4,8 @@ export const customerCatalog = [
  {code:'planner',name:'Woning- en keukenplanner',description:'Werk indelingen, materialen en een zichtbaar ruimtevoorbeeld uit.',kind:'Tool'},
  {code:'shophulp',name:'Shop-hulp',description:'Ondersteuning bij het opzetten en aanvullen van je webshop.',kind:'Agent'},
  {code:'campaign',name:'Campaign Agent',description:'Werk campagnes en de boodschap voor je doelgroep uit.',kind:'Agent'},
- {code:'admaker',name:'AdMaker',description:'Maak advertentieconcepten met tekst en beeld.',kind:'Agent'},
- {code:'promotie',name:'Promotie-agent',description:'Bereid content en een promotieplanning voor. Automatisch publiceren volgt later.',kind:'Agent'}
+ {code:'admaker',name:'AdMaker',description:'Maak losse advertentieconcepten met tekst en beeld; ook inbegrepen bij de Promotie-agent.',kind:'Agent'},
+ {code:'promotie',name:'Promotie-agent',description:'Content, kanaalplanning en AdMaker inbegrepen. Facebook, Instagram, YouTube, TikTok, Pinterest, Snapchat, LinkedIn en X. Automatisch publiceren volgt later.',kind:'Agent'}
 ];
 export const customerBundles = [
  {name:'Website en zichtbaarheid',products:['sitebuilder','promotie']},
