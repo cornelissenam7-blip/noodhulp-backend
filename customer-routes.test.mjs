@@ -30,3 +30,46 @@ test('saved selection is loaded for verified owner only',async()=>{await server(
 test('free website plan uses verified owner and preserves unrelated profile fields',async()=>{let saved;await server(env,async(url,opts)=>{if(url.endsWith('/auth/v1/user'))return response({id:alice});assert.ok(url.includes('amcinova_customer_profiles'));if(opts.method==='POST'){saved=JSON.parse(opts.body);assert.deepEqual(Object.keys(saved).sort(),['user_id','website_plan']);assert.equal(saved.user_id,alice);return response([saved]);}assert.ok(url.includes('user_id=eq.'+alice));return response([{website_plan:saved.website_plan}]);},async url=>{const plan={name:'TEST plan',audience:'vakman',offer:'website',style:'blauw',pages:'contact',action:'aanvraag',user_id:bob};const r=await fetch(url+'/api/customer/website-plan',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({plan,user_id:bob})});assert.equal(r.status,200);assert.equal(saved.website_plan.user_id,undefined);const d=await(await fetch(url+'/api/customer/website-plan?user_id='+bob,{headers:{Authorization:token}})).json();assert.equal(d.plan.name,'TEST plan');});});
 test('invalid website plan never reaches database',async()=>{await server(env,async url=>{assert.ok(url.endsWith('/auth/v1/user'));return response({id:alice});},async url=>{for(const plan of [null,[],{name:''},{name:'a'.repeat(2001)}])assert.equal((await fetch(url+'/api/customer/website-plan',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({plan})})).status,400);});});
 test('tester signup uses verified identity and only writes interest field',async()=>{let saved;await server(env,async(url,o)=>{if(url.endsWith('/auth/v1/user'))return response({id:alice,email:'own@example.invalid'});assert.ok(url.includes('amcinova_customer_profiles'));if(o.method==='POST'){saved=JSON.parse(o.body);assert.deepEqual(Object.keys(saved).sort(),['tester_application','user_id']);assert.equal(saved.user_id,alice);return response([saved]);}assert.ok(url.includes('user_id=eq.'+alice));return response([saved]);},async url=>{const r=await fetch(url+'/api/customer/tester-application',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({product:'sitebuilder',goal:'TEST',contactConsent:true,user_id:bob,email:'forged',status:'active'})});assert.equal(r.status,200);assert.equal(saved.tester_application.email,'own@example.invalid');assert.equal(saved.tester_application.status,'interest');assert.equal((await fetch(url+'/api/customer/tester-application',{headers:{Authorization:token}})).status,200);assert.equal((await fetch(url+'/api/admin/tester-applications',{headers:{Authorization:token}})).status,401);});});
+test('expired trial retains own document read but blocks new project writes and AI',async()=>{await server(env,async(url)=>{if(url.endsWith('/auth/v1/user'))return response({id:alice});if(url.includes('amcinova_customer_access'))return response([{status:'active',source:'trial',expires_at:'2020-01-01T00:00:00Z'}]);if(url.includes('amcinova_customer_documents')){assert.ok(url.includes('user_id=eq.'+alice));return response([{id:bob,user_id:alice,product_code:'sitebuilder',payload:{text:'TEST own work'}}]);}assert.fail(url);},async url=>{const headers={Authorization:token,'Content-Type':'application/json'};const read=await fetch(url+'/api/customer/documents/'+bob,{headers});assert.equal(read.status,200);assert.equal((await read.json()).document.payload.text,'TEST own work');assert.equal((await fetch(url+'/api/customer/documents',{method:'POST',headers,body:JSON.stringify({product:'sitebuilder',projectId:alice,revision:1,name:'TEST expired',payload:{}})})).status,403);assert.equal((await fetch(url+'/api/customer/ai/generate',{method:'POST',headers,body:JSON.stringify({task:'site',fields:{}})})).status,403);});});
+
+test('credit balance ignores forged customer and expired grants',async()=>{
+ await server({...env,CUSTOMER_AI_CREDITS_ENABLED:'true'},async(url,o)=>{
+  if(url.endsWith('/auth/v1/user'))return response({id:alice});
+  assert.ok(url.includes('amcinova_ai_credit_grants?user_id=eq.'+alice));
+  assert.ok(!url.includes(bob));assert.equal(o.headers.Authorization,token);assert.equal(o.headers.apikey,key);
+  return response([{product_code:'sitebuilder',remaining:7,expires_at:null},{product_code:'sitebuilder',remaining:99,expires_at:'2020-01-01'}]);
+ },async url=>{
+  const r=await fetch(url+'/api/customer/credits?user_id='+bob,{headers:{Authorization:token}});
+  assert.equal(r.status,200);const d=await r.json();assert.equal(d.balances.find(p=>p.product==='sitebuilder').remaining,7);assert.equal(d.topupEnabled,false);
+ });
+});
+test('zero balance blocks AI provider and uses verified owner for reservation',async()=>{
+ await server({...env,CUSTOMER_AI_CREDITS_ENABLED:'true',SUPABASE_SERVICE_ROLE_KEY:'TEST-server-only'},async(url,o)=>{
+  if(url.endsWith('/auth/v1/user'))return response({id:alice});
+  if(url.includes('amcinova_customer_access'))return response([{status:'active',source:'trial'}]);
+  assert.ok(url.endsWith('/rpc/amcinova_credit_reserve'));const body=JSON.parse(o.body);
+  assert.equal(body.p_user,alice);assert.equal(body.p_product,'sitebuilder');assert.match(body.p_request,/^[a-f0-9-]{36}$/);return response(false);
+ },async url=>{
+  const r=await fetch(url+'/api/customer/ai/generate',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({task:'site',fields:{},user_id:bob})});
+  assert.equal(r.status,402);
+ });
+});
+test('customer login cannot inspect admin credit history',async()=>{await server(env,()=>assert.fail('network'),async url=>{assert.equal((await fetch(url+'/api/admin/ai-credits/'+bob,{headers:{Authorization:token}})).status,401);});});
+test('extra credit test request is idempotent and never changes balance',async()=>{
+ let row,inserts=0;await server({...env,CUSTOMER_AI_CREDITS_ENABLED:'true'},async(url,o)=>{
+  if(url.endsWith('/auth/v1/user'))return response({id:alice});
+  if(url.includes('amcinova_customer_access'))return response([{status:'active',source:'trial'}]);
+  assert.ok(url.includes('amcinova_ai_topup_requests'));
+  if(o.method==='POST'){row=JSON.parse(o.body);inserts++;assert.equal(row.user_id,alice);assert.equal(row.status,'TEST');return response([row]);}
+  assert.ok(url.includes('user_id=eq.'+alice));return response(row?[row]:[]);
+ },async url=>{
+  const send=units=>fetch(url+'/api/customer/credits/test-request',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({id:bob,product:'sitebuilder',units,user_id:bob,status:'paid'})});
+  for(let i=0;i<2;i++)assert.equal((await send(25)).status,200);
+  assert.equal((await send(100)).status,409);assert.equal(inserts,1);
+ });
+});
+test('invalid test pack is rejected before access or database write',async()=>{
+ await server({...env,CUSTOMER_AI_CREDITS_ENABLED:'true'},async url=>{assert.ok(url.endsWith('/auth/v1/user'));return response({id:alice});},async url=>{
+  const r=await fetch(url+'/api/customer/credits/test-request',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({id:bob,product:'sitebuilder',units:999})});assert.equal(r.status,400);
+ });
+});

@@ -3,6 +3,7 @@ import {generateAgent} from './agent-ai.mjs';
 import {proposeQuote} from './quote-ai.mjs';
 import {proposeDrawing} from './drawing-ai.mjs';
 import {randomUUID} from 'node:crypto';
+import {creditClient} from './ai-credits.mjs';
 import {testOrder} from './test-order-model.mjs';
 import {testerApplication} from './tester-application.mjs';
 import {validateSnapshot} from './quote-routes.mjs';
@@ -28,6 +29,7 @@ export function isPublicKey(key){
  try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
 }
 export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb,planAdvisor=generateAgent}={}){
+ const credits=creditClient({env,fetchImpl});
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
  const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);
  const wrap=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{if(!enabled())throw fault(503,'Klantaccounts worden voorbereid. De bestaande beheerdersomgeving blijft beschikbaar.');await fn(req,res);}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Accountopslag tijdelijk niet beschikbaar. Probeer opnieuw.'});}};
@@ -74,9 +76,44 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   const product=mode==='generate'?'sitebuilder':'offertetool';await requireProduct(u,product);
   if(mode==='generate'&&!['site','advice','review'].includes(req.body?.task))throw fault(403,'Dit voorstel hoort niet bij je product.');
   if(Date.now()-aiStart>3600000){aiStart=Date.now();aiCount=0;}if(aiBusy||aiCount>=30)throw fault(429,'De agent is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
-  aiBusy=true;aiCount++;try{const result=await(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
+  aiBusy=true;const requestId=randomUUID();
+  try{const result=await credits.run(u.id,product,requestId,async()=>{aiCount++;return(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
  }));
- app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:false});});
+ app.get('/api/customer/credits',wrap(async(req,res)=>{
+  const u=await identity(req);
+  if(!credits.enabled)return res.json({ok:true,enabled:false,balances:[],topupEnabled:false});
+  const grants=await db(u,'amcinova_ai_credit_grants','?user_id=eq.'+u.id+'&select=product_code,remaining,expires_at');
+  const balances=customerCatalog.map(p=>({product:p.code,name:p.name,remaining:grants.filter(g=>g.product_code===p.code&&(!g.expires_at||Date.parse(g.expires_at)>Date.now())).reduce((n,g)=>n+g.remaining,0)}));
+  res.json({ok:true,enabled:true,balances,topupEnabled:false,testTopupEnabled:true,testPacks:[10,25,100]});
+ }));
+ app.post('/api/customer/credits/test-request',json({limit:'5kb'}),wrap(async(req,res)=>{
+  const u=await identity(req);
+  if(!credits.enabled)throw fault(503,'AI-tegoeden zijn nog niet geactiveerd.');
+  const {id,product,units}=req.body||{};
+  if(!uuid.test(id)||!products.has(product)||![10,25,100].includes(units))throw fault(400,'Kies een geldig testpakket.');
+  await requireProduct(u,product);
+  const row={id,user_id:u.id,product_code:product,units,status:'TEST'},query='?user_id=eq.'+u.id+'&id=eq.'+id;
+  let rows=await db(u,'amcinova_ai_topup_requests',query);
+  if(!rows.length){try{rows=await db(u,'amcinova_ai_topup_requests','',row);}catch(e){if(e.status!==409)throw e;rows=await db(u,'amcinova_ai_topup_requests',query);}}
+  if(!rows[0]||rows[0].product_code!==product||rows[0].units!==units)throw fault(409,'Dit aanvraagnummer hoort bij een andere keuze.');
+  res.json({ok:true,request:rows[0],notice:'Testaanvraag opgeslagen. Geen betaling, geen extra tegoed toegekend.'});
+ }));
+ app.get('/api/admin/ai-credits/:userId',async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});
+  if(!uuid.test(req.params.userId))return res.status(400).json({ok:false,error:'Ongeldig klantaccount.'});
+  if(!credits.enabled)return res.json({ok:true,enabled:false,grants:[],usage:[]});
+  try{
+   const owner='?user_id=eq.'+req.params.userId;
+   const [grants,usage,requests]=await Promise.all([
+    adminDb('amcinova_ai_credit_grants',{method:'GET',query:owner+'&select=id,product_code,units,remaining,source,reference,expires_at,created_at&order=created_at.desc&limit=100'}),
+    adminDb('amcinova_ai_credit_usage',{method:'GET',query:owner+'&select=request_id,product_code,grant_id,status,created_at&order=created_at.desc&limit=100'}),
+    adminDb('amcinova_ai_topup_requests',{method:'GET',query:owner+'&select=id,product_code,units,status,created_at&order=created_at.desc&limit=100'})
+   ]);
+   res.json({ok:true,enabled:true,grants,usage,requests,limit:100});
+  }catch{res.status(503).json({ok:false,error:'AI-tegoeden konden niet worden geladen.'});}
+ });
+ app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:false,aiCreditsEnabled:credits.enabled});});
  app.get('/api/customer/tester-application',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=tester_application');res.json({ok:true,application:rows[0]?.tester_application||null});}));
  app.post('/api/customer/tester-application',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req),application=testerApplication(req.body,u.email);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,tester_application:application},true);res.json({ok:true,application});}));
  app.get('/api/admin/tester-applications',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const rows=await adminDb('amcinova_customer_profiles',{method:'GET',query:'?select=user_id,tester_application&tester_application=not.is.null&order=user_id&limit=50&offset='+offset});res.json({ok:true,applications:rows,nextOffset:rows.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Aanmeldingen konden niet worden geladen.'});}});
