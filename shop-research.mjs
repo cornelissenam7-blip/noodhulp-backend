@@ -5,18 +5,20 @@ const array=items=>({type:'array',items});
 const schema=obj({summary:s,suppliers:array(obj({name:s,type:{type:'string',enum:['dropship','wholesale','publisher','manufacturer']},url:s,reason:s,terms:s})),products:array(obj({name:s,description:s,url:s,supplier:s})),limitations:array(s)});
 const fail=message=>Object.assign(new Error(message),{status:502});
 export function publicUrl(value){try{const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password||!u.hostname.includes('.')||/^[\d.:]+$/.test(u.hostname)||/(^|\.)(localhost|local|internal|test|invalid)$/.test(u.hostname))return '';u.hash='';return u.href;}catch{return '';}}
+function sourceKey(value){const valid=publicUrl(value);if(!valid)return '';const u=new URL(valid);for(const k of [...u.searchParams.keys()])if(/^utm_/i.test(k))u.searchParams.delete(k);return u.href;}
 export function verifyResearch(raw,response){
  if(!raw||typeof raw.summary!=='string'||!Array.isArray(raw.suppliers)||!Array.isArray(raw.products)||!Array.isArray(raw.limitations))throw fail('Het leveranciersonderzoek gaf geen bruikbaar antwoord.');
  const searched=(response.output||[]).some(x=>x.type==='web_search_call'&&x.status==='completed');
  if(!searched)throw fail('Er is geen geslaagde webzoekopdracht. Er worden geen onbevestigde leveranciers getoond.');
  const urls=new Set();
  for(const item of response.output||[]){for(const x of item.action?.sources||[])if(publicUrl(x.url))urls.add(publicUrl(x.url));for(const c of item.content||[])for(const a of c.annotations||[])if(a.type==='url_citation'&&publicUrl(a.url))urls.add(publicUrl(a.url));}
+ const sourceUrls=new Map([...urls].map(u=>[sourceKey(u),u]));
  const seen=new Set(),counts={dropship:0,wholesale:0,publisher:0,manufacturer:0};
  const suppliers=raw.suppliers.filter(x=>{
-  if(!x||!Object.hasOwn(counts,x.type)||['name','url','reason','terms'].some(k=>typeof x[k]!=='string'||x[k].length>3000)||!urls.has(publicUrl(x.url)))return false;
+  if(!x||!Object.hasOwn(counts,x.type)||['name','url','reason','terms'].some(k=>typeof x[k]!=='string'||x[k].length>3000)||!sourceUrls.has(sourceKey(x.url)))return false;
   const key=x.type+':'+new URL(x.url).hostname.replace(/^www\./,'');if(seen.has(key)||counts[x.type]>=5)return false;seen.add(key);counts[x.type]++;return true;
- }).map(x=>({...x,url:publicUrl(x.url)}));
- const products=raw.products.filter(x=>x&&['name','description','url','supplier'].every(k=>typeof x[k]==='string'&&x[k].length<=2000)&&urls.has(publicUrl(x.url))).slice(0,8).map(x=>({...x,url:publicUrl(x.url)}));
+ }).map(x=>({...x,url:sourceUrls.get(sourceKey(x.url))}));
+ const products=raw.products.filter(x=>x&&['name','description','url','supplier'].every(k=>typeof x[k]==='string'&&x[k].length<=2000)&&sourceUrls.has(sourceKey(x.url))).slice(0,8).map(x=>({...x,url:sourceUrls.get(sourceKey(x.url))}));
  const limitations=raw.limitations.filter(x=>typeof x==='string').map(x=>x.slice(0,1000)).slice(0,8);
  limitations.push(`Broncontrole: ${raw.suppliers.length} leverancierskandidaten en ${raw.products.length} productkandidaten ontvangen; ${urls.size} bron-URL's waargenomen; ${suppliers.length} leveranciers en ${products.length} producten behouden. Een afwijkende of niet waargenomen URL wordt niet geaccepteerd.`);
  return {title:'Leveranciers en assortiment',summary:raw.summary.slice(0,3000),sections:[{heading:'Samenwerken met leveranciers',text:'Groothandels, uitgevers en producenten zijn de hoofdroute. Bespreek wederverkoop, eigen merk of productie en controleer minimale afname, rechten en levering. Dropshipping is een optionele route. Controleer per kandidaat de voorwaarden; een vermelding is geen samenwerking of goedkeuring.'}],questions:[],headline:'',intro:'',cta:'',ads:[],suppliers,products,limitations,researchedAt:new Date().toISOString()};

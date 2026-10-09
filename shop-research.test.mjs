@@ -10,3 +10,5 @@ test('bad URLs, incomplete responses and provider errors fail safely',async()=>{
 test('publishers and manufacturers retained only with observed source',()=>{for(const type of ['publisher','manufacturer']){const r=verifyResearch({...raw,suppliers:[{...supplier,type}]},response);assert.equal(r.suppliers[0].type,type);}});
 
 
+
+test('tracking parameters may differ but product paths and functional queries must match',()=>{const tracked={output:[{type:'web_search_call',status:'completed',action:{sources:[{url:url+'?utm_source=openai'}]}}]};assert.equal(verifyResearch(raw,tracked).suppliers[0].url,url+'?utm_source=openai');assert.equal(verifyResearch({...raw,suppliers:[{...supplier,url:url+'/other'}]},tracked).suppliers.length,0);assert.equal(verifyResearch({...raw,products:[{...product,url:url+'?product=2'}]},tracked).products.length,0);});
