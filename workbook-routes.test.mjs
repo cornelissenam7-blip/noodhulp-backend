@@ -17,7 +17,7 @@ async function harness(overrides={}){
  const transport={supportsIdempotency:true,send:async message=>{mails++;sent.push(message);if(sendHook)await sendHook();if(mailState==='throw')throw Error('secret fixture@example.invalid');if(mailState==='rejected')return{accepted:false,definitive:true};return{accepted:true,messageId:'mock-receipt-'+message.idempotencyKey};}};
  const app=express();registerWorkbookRoutes(app,{json:express.json,env,now:()=>time,hasAdminAccess:req=>!req.query?.key&&req.headers['x-admin-key']==='fixture-admin',mailTransport:overrides.noMail?undefined:transport,fetchImpl:async(url,options)=>{
   calls++;if(fail||failPatch&&options.method==='PATCH')throw Error('secret fixture@example.invalid');const query=new URL(url).searchParams,id=query.get('lead_id')?.slice(3);const body=options.body?JSON.parse(options.body):null;if(failRecord&&options.method==='PATCH'&&body.metadata.delivery.status!=='sending')throw Error('fixture write fail');
-  if(options.method==='POST'){if(!rows.has(body.lead_id))rows.set(body.lead_id,structuredClone(body));return{ok:true,status:204};}
+  if(options.method==='POST'){if(!rows.has(body.lead_id))rows.set(body.lead_id,structuredClone(body));return{ok:true,status:201,json:async()=>{throw new SyntaxError('Empty return=minimal response');}};}
   if(options.method==='PATCH'){const row=rows.get(id);if(!row||row.metadata.revision!==query.get('metadata->>revision')?.slice(3))return{ok:true,status:200,json:async()=>[]};Object.assign(row,body);return{ok:true,status:200,json:async()=>[structuredClone(row)]};}
   const result=id?(rows.has(id)?[rows.get(id)]:[]):[...rows.values()].slice(Number(query.get('offset')||0),Number(query.get('offset')||0)+50);return{ok:true,status:200,json:async()=>structuredClone(result)};
  }});

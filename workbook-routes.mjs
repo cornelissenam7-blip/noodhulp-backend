@@ -41,7 +41,7 @@ export function registerWorkbookRoutes(app,{json,env=process.env,fetchImpl=fetch
  async function db(query,{method='GET',body}={}){
   if(!databaseReady())throw fault(503,'Opslag tijdelijk niet beschikbaar.');
   const r=await fetchImpl(base+'/rest/v1/amcinova_campaign_leads'+query,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:method==='POST'?'resolution=ignore-duplicates,return=minimal':'return=representation'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
-  if(!r.ok)throw fault(503,'Opslag tijdelijk niet beschikbaar. Probeer opnieuw.');return r.status===204?null:r.json();
+  if(!r.ok)throw fault(503,'Opslag tijdelijk niet beschikbaar. Probeer opnieuw.');return method==='POST'||r.status===204?null:r.json();
  }
  async function read(id){const rows=await db('?lead_id=eq.'+id+'&metadata->>kind=eq.workbook&select=lead_id,name,email,status,metadata,created_at&limit=1');return verifiedOrigin(rows?.[0])?rows[0]:undefined;}
  async function change(row,metadata){
