@@ -5,7 +5,7 @@ export function createWorkbookRelayTransport({env=process.env,fetchImpl=globalTh
  return {requiresDurableLease:true,async send(message){
   const id=message.idempotencyKey?.replace(/^amcinova-workbook-v3-/,'');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id||''))return {accepted:false,definitive:true};
-  const body=JSON.stringify({id,to:message.to});const stamp=String(Math.floor(now()/1000));
+  const body=JSON.stringify({id,to:message.to,...(message.language==='en'?{language:'en'}:{})});const stamp=String(Math.floor(now()/1000));
   const signature=createHmac('sha256',secret).update(stamp+'\n'+body).digest('hex');
   try{
    const response=await fetchImpl(url,{method:'POST',redirect:'error',signal:message.signal,headers:{'Content-Type':'application/json','X-Amcinova-Time':stamp,'X-Amcinova-Signature':signature},body});

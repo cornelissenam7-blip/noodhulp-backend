@@ -12,7 +12,7 @@ export function validateWorkbook(body){
  if(typeof body.proposal!=='boolean'||!uuid.test(body.requestId))throw fault(400,'Ongeldige aanvraag. Vernieuw de pagina.');
  if(body.marketing===true)throw fault(400,'Deze route bevat geen marketinginschrijving.');
  if(body.proposal&&(typeof body.help!=='string'||body.help.length>1000||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(body.help)))throw fault(400,'Gebruik maximaal 1000 tekens voor je hulpvraag.');
- return {name:body.name.trim(),email:body.email.trim().toLowerCase(),proposal:body.proposal,help:body.proposal?body.help.trim():''};
+ return {name:body.name.trim(),email:body.email.trim().toLowerCase(),proposal:body.proposal,help:body.proposal?body.help.trim():'',...(body.language==='en'?{language:'en'}:{})};
 }
 export function registerWorkbookRoutes(app,{json,env=process.env,fetchImpl=fetch,now=Date.now,hasAdminAccess=()=>false,mailTransport}={}){
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_SERVICE_ROLE_KEY||'',file=env.WORKBOOK_FILE||'',privacy=env.WORKBOOK_PRIVACY_URL||'';
@@ -60,7 +60,7 @@ export function registerWorkbookRoutes(app,{json,env=process.env,fetchImpl=fetch
   for(const [k,r] of limits)if(time-r.start>=3600000)limits.delete(k);
   let limit=limits.get(ip);if(!limit){if(limits.size>=10000)throw fault(429,'Probeer later opnieuw.');limit={start:time,count:0};limits.set(ip,limit);}if(++limit.count>20)throw fault(429,'Te veel pogingen. Probeer later opnieuw.');
   const fingerprint=createHash('sha256').update(JSON.stringify(v)).digest('hex'),id=req.body.requestId,created=new Date(time).toISOString();
-  await db('?on_conflict=lead_id',{method:'POST',body:{lead_id:id,site:'amcinova.com',source:'workbook',medium:'website',campaign:'werkboek',name:v.name||null,email:v.email,phone:null,message:v.help||null,status:v.proposal?'new':'workbook_requested',metadata:{kind:'workbook',version:3,proposalRequested:v.proposal,marketingConsent:false,privacyUrl:privacy,privacyVersion:env.WORKBOOK_PRIVACY_VERSION,fingerprint,originProof:signature('origin',[id,fingerprint,created]),consentVersion:'workbook-email-v1',revision:randomUUID(),followUpStatus:'none',followUpStartedAt:null,retentionStartsAt:created,deleteEligibleAt:sixMonthsAfter(created),delivery:{status:'pending'}},created_at:created,updated_at:created}});
+  await db('?on_conflict=lead_id',{method:'POST',body:{lead_id:id,site:'amcinova.com',source:'workbook',medium:'website',campaign:'werkboek',name:v.name||null,email:v.email,phone:null,message:v.help||null,status:v.proposal?'new':'workbook_requested',metadata:{kind:'workbook',version:3,proposalRequested:v.proposal,...(v.language?{language:v.language}:{}),marketingConsent:false,privacyUrl:privacy,privacyVersion:env.WORKBOOK_PRIVACY_VERSION,fingerprint,originProof:signature('origin',[id,fingerprint,created]),consentVersion:'workbook-email-v1',revision:randomUUID(),followUpStatus:'none',followUpStartedAt:null,retentionStartsAt:created,deleteEligibleAt:sixMonthsAfter(created),delivery:{status:'pending'}},created_at:created,updated_at:created}});
   let row=await read(id);if(!row)throw fault(503,'Opslaan kon niet worden bevestigd. Probeer opnieuw.');
   if(row.metadata?.fingerprint!==fingerprint)throw fault(409,'Deze aanvraagcode is al gebruikt. Vernieuw de pagina.');
   const delivery=row.metadata.delivery||{status:'pending'};
@@ -74,7 +74,7 @@ export function registerWorkbookRoutes(app,{json,env=process.env,fetchImpl=fetch
    return deliveryResponse(res,{status:'uncertain'});
   }
   try{row=await change(row,{...row.metadata,delivery:{...delivery,status:'sending',leaseUntil:new Date(time+60000).toISOString(),attemptedAt:created}});}catch(e){return deliveryResponse(res,{status:e.status===409?'sending':'pending'});}
-  const receipt=await mailer.send({to:v.email,file,requestId:id}),finalDelivery={status:receipt.state,acceptedAt:receipt.accepted?new Date(now()).toISOString():null,...(receipt.messageId?{providerMessageId:receipt.messageId}:{})};
+  const receipt=await mailer.send({to:v.email,file:v.language==='en'?path.join(path.dirname(file),'Amcinova-from-idea-to-online-customers.pdf'):file,language:v.language||'nl',requestId:id}),finalDelivery={status:receipt.state,acceptedAt:receipt.accepted?new Date(now()).toISOString():null,...(receipt.messageId?{providerMessageId:receipt.messageId}:{})};
   let recorded=false;
   for(let attempt=0;attempt<3;attempt++)try{row=await change(row,{...row.metadata,delivery:finalDelivery});recorded=true;break;}catch(e){if(e.status!==409)break;try{row=await read(id);}catch{break;}if(!row)break;}
   return deliveryResponse(res,finalDelivery,recorded);
