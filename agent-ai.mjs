@@ -1,3 +1,4 @@
+import {localizePublicResult,publicOutputText} from './public-output-language.mjs';
 import {researchProductBrand} from './product-brand.mjs';
 import {translateUI} from './ui-translation.mjs';
 import {checkVisibility} from './visibility-check.mjs';
@@ -30,10 +31,10 @@ const taskBrief={
  campaign:'Maak een uitvoerbaar CAMPAGNEPLAN, geen webpagina en geen Over ons-secties. Vul alle zeven planvelden: goal = opgegeven doel of een duidelijk gemarkeerd voorgesteld doel; audience = opgegeven doelgroep/plaats of voorstel; channel = gekozen kanaal met reden, geen verzonnen prestaties; budget = opgegeven budget met dezelfde periode en geen overschrijding, bij ontbrekend budget geen bedrag verzinnen maar vraag naar budget en periode; creative = twee concrete testvarianten voor uitsluitend het opgegeven aanbod, benoem wat je vergelijkt; measurement = voorgestelde gebeurtenissen en UTM-metingen, zeg dat inrichting en werking gecontroleerd moeten worden en claim niet dat tracking al werkt; evaluation = concrete voorgestelde evaluatiestappen, geen beloofde leads, omzet, CPA of rendement. Geen uitbreiding van het opgegeven aanbod of onbevestigde productvoordelen.',
  ads:'Maak uitsluitend korte advertenties die alleen het letterlijke aanbod en opgegeven werkgebied herformuleren. Geen nieuwe voordelen. In ads voor het opgegeven aanbod en kanaal. Elke headline maximaal 30 tekens en text maximaal 90 tekens inclusief spaties. Gebruik een neutrale CTA zoals Vraag een offerte aan; maak daarvan geen gratis of vrijblijvend aanbod. Geen website-secties.'
 };
-function normalizeTaskOutput(p,task){
+export function normalizeTaskOutput(p,task,language='nl'){
  if(task==='campaign'){
   if(!p?.plan||Object.keys(campaignParts).some(k=>typeof p.plan[k]!=='string'||!p.plan[k].trim()||p.plan[k].length>5000))throw fail(502,'AI heeft geen volledig campagneplan gemaakt. Probeer opnieuw.');
-  return {title:p.title,summary:p.summary,sections:Object.entries(campaignParts).map(([k,heading])=>({heading,text:p.plan[k]})),questions:p.questions,headline:'',intro:'',cta:'',ads:[]};
+  return {title:p.title,summary:p.summary,sections:Object.entries(language==='en'?{goal:'Goal',audience:'Audience',channel:'Channel selection',budget:'Budget',creative:'Ad proposal and test',measurement:'Measurement',evaluation:'Evaluation and adjustment'}:campaignParts).map(([k,heading])=>({heading,text:p.plan[k]})),questions:p.questions,headline:'',intro:'',cta:'',ads:[]};
  }
  return {...p,sections:task==='ads'?[]:p?.sections,ads:task==='ads'?p?.ads:[],headline:task==='site'?p?.headline:'',intro:task==='site'?p?.intro:'',cta:task==='site'?p?.cta:''};
 }
@@ -84,7 +85,7 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
   const result=await response.json();if(result.status!=='completed')throw fail(502,'Het AI-antwoord is niet volledig. Probeer opnieuw.');
   try{p=JSON.parse((result.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(502,'AI gaf geen bruikbaar antwoord.');}
   const previousDraft=p;
-  p=validateAgentOutput(normalizeTaskOutput(p,input.task));
+  p=validateAgentOutput(normalizeTaskOutput(p,input.task,input.fields.language));
   feedback=checkConcreteClaims(p,input);
   if(!feedback.length)break;
   input.corrections=feedback;
@@ -102,7 +103,7 @@ export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,no
  const secret=env.AGENT_SIGNING_SECRET||env.QUOTE_SIGNING_SECRET||env.ADMIN_KEY,admin=(env.ADMIN_KEY||'').trim(),prefix='/api/agent/ai';
  const eq=(a,b)=>{const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)};
  const sign=body=>createHmac('sha256',secret).update(body).digest('base64url');
- const handle=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{await fn(req,res)}catch(e){res.status(e.status||500).json({ok:false,error:e.status?e.message:'De agent kon de aanvraag niet verwerken.'})}};
+ const handle=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{await fn(req,res)}catch(e){res.status(e.status||500).json({ok:false,error:publicOutputText(e.status?e.message:'De agent kon de aanvraag niet verwerken.',req.body?.fields?.language)})}};
  app.post(prefix+'/session',json({limit:'1kb'}),handle(async(req,res)=>{
   if(!admin||!eq(String(req.headers['x-admin-key']||'').trim(),admin))throw fail(401,'Log in via Beheer.');
   const expiresAt=now()+3600000,body=Buffer.from(JSON.stringify({aud:'amcinova-agents',id:randomUUID(),exp:expiresAt})).toString('base64url');res.json({token:body+'.'+sign(body),expiresAt});
@@ -119,6 +120,6 @@ export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,no
  app.post(prefix+'/generate',json({limit:'32kb'}),handle(async(req,res)=>{
   authorize(req);
   cleanAgentInput(req.body);if(now()-start>=3600000){start=now();count=0;}if(busy||count>=30)throw fail(429,'De AI is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
-  busy=true;count++;try{res.json({ok:true,result:await generateAgent(req.body,{env,fetchImpl})});}finally{busy=false;}
+  busy=true;count++;try{const result=await generateAgent(req.body,{env,fetchImpl});res.json({ok:true,result:req.body.fields['research-mode']==='ui-translation'?result:localizePublicResult(result,req.body.fields.language)});}finally{busy=false;}
  }));
 }

@@ -13,3 +13,5 @@ for(const [language,expected]of [['en','Engels'],['nl','Nederlands'],['en; ignor
   }});
  });
 }
+import {normalizeTaskOutput} from './agent-ai.mjs';
+test('campaign section headings follow the requested language and retain budget',()=>{const plan={goal:'TEST',audience:'TEST',channel:'TEST',budget:'EUR 100 per month',creative:'TEST',measurement:'TEST',evaluation:'TEST'};const en=normalizeTaskOutput({title:'TEST',summary:'TEST',plan,questions:[]},'campaign','en');assert.equal(en.sections[0].heading,'Goal');assert.equal(en.sections.find(s=>s.heading==='Budget').text,plan.budget);assert.equal(normalizeTaskOutput({title:'TEST',summary:'TEST',plan,questions:[]},'campaign','nl').sections[0].heading,'Doel');});
