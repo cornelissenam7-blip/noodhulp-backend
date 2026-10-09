@@ -7,6 +7,7 @@ import cors from "cors";
 import { registerCustomerRoutes } from "./customer-routes.mjs";
 import { registerWorkbookRoutes } from "./workbook-routes.mjs";
 import { createWorkbookSmtpTransport } from "./workbook-smtp.mjs";
+import { createWorkbookRelayTransport } from "./workbook-relay.mjs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
@@ -320,7 +321,7 @@ app.use(cors({
 }));
 registerQuoteRoutes(app, { json: express.json });
 registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest });
-registerWorkbookRoutes(app, { json:express.json, hasAdminAccess:req=>!req.query?.key&&hasAdminAccess(req), mailTransport:createWorkbookSmtpTransport() });
+registerWorkbookRoutes(app, { json:express.json, hasAdminAccess:req=>!req.query?.key&&hasAdminAccess(req), mailTransport:createWorkbookRelayTransport() || createWorkbookSmtpTransport() });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
 app.use(express.static(path.join(__dirname, "public"))); // serveert /public
