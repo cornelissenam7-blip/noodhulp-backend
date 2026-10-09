@@ -21,7 +21,7 @@ export function registerWorkbookRoutes(app,{json,env=process.env,fetchImpl=fetch
  const databaseReady=()=>base.startsWith('https://')&&!!key;
  const signature=(purpose,value)=>createHmac('sha256',key).update('amcinova-workbook-'+purpose+':'+JSON.stringify(value)).digest('base64url');
  const sameSignature=(a,b)=>typeof a==='string'&&/^[A-Za-z0-9_-]{43}$/.test(a)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
- const originProof=row=>signature('origin',[row.lead_id,row.metadata.fingerprint,row.created_at]);
+ const originProof=row=>signature('origin',[row.lead_id,row.metadata.fingerprint,new Date(row.created_at).toISOString()]);
  const verifiedOrigin=row=>row?.metadata?.kind==='workbook'&&sameSignature(row.metadata.originProof,originProof(row));
  const followUpProof=(row,meta)=>signature('follow-up',[row.lead_id,meta.followUpStatus,meta.followUpStartedAt,meta.followUpStatusChangedAt,meta.followUpReviewAt,meta.followUpNote]);
  const view=row=>{const followUpAuthorized=sameSignature(row.metadata?.followUpProof,followUpProof(row,row.metadata||{})),needsVerification=!verifiedOrigin(row)||(row.metadata?.followUpStatus==='active'&&!followUpAuthorized);const result=retentionView(row,now(),{followUpAuthorized});return {...result,needsVerification,...(needsVerification?{eligible:false}:{})};};

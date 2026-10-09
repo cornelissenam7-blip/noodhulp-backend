@@ -17,7 +17,7 @@ async function harness(overrides={}){
  const transport={supportsIdempotency:true,send:async message=>{mails++;sent.push(message);if(sendHook)await sendHook();if(mailState==='throw')throw Error('secret fixture@example.invalid');if(mailState==='rejected')return{accepted:false,definitive:true};return{accepted:true,messageId:'mock-receipt-'+message.idempotencyKey};}};
  const app=express();registerWorkbookRoutes(app,{json:express.json,env,now:()=>time,hasAdminAccess:req=>!req.query?.key&&req.headers['x-admin-key']==='fixture-admin',mailTransport:overrides.noMail?undefined:transport,fetchImpl:async(url,options)=>{
   calls++;if(fail||failPatch&&options.method==='PATCH')throw Error('secret fixture@example.invalid');const query=new URL(url).searchParams,id=query.get('lead_id')?.slice(3);const body=options.body?JSON.parse(options.body):null;if(failRecord&&options.method==='PATCH'&&body.metadata.delivery.status!=='sending')throw Error('fixture write fail');
-  if(options.method==='POST'){if(!rows.has(body.lead_id))rows.set(body.lead_id,structuredClone(body));return{ok:true,status:201,json:async()=>{throw new SyntaxError('Empty return=minimal response');}};}
+  if(options.method==='POST'){if(!rows.has(body.lead_id))rows.set(body.lead_id,{...structuredClone(body),created_at:body.created_at.replace('Z','+00:00')});return{ok:true,status:201,json:async()=>{throw new SyntaxError('Empty return=minimal response');}};}
   if(options.method==='PATCH'){const row=rows.get(id);if(!row||row.metadata.revision!==query.get('metadata->>revision')?.slice(3))return{ok:true,status:200,json:async()=>[]};Object.assign(row,body);return{ok:true,status:200,json:async()=>[structuredClone(row)]};}
   const result=id?(rows.has(id)?[rows.get(id)]:[]):[...rows.values()].slice(Number(query.get('offset')||0),Number(query.get('offset')||0)+50);return{ok:true,status:200,json:async()=>structuredClone(result)};
  }});
@@ -72,14 +72,16 @@ test('admin status changes require authorization, revision and evidence; do not 
  }finally{await h.close();}
 });
 test('privacy version and consent persist; no public read/admin elevation; rate limit',async()=>{
- const h=await harness();try{await h.call();const row=h.rows.get(valid.requestId);assert.equal(row.metadata.privacyVersion,'test-privacy-v2');assert.equal(row.metadata.marketingConsent,false);assert.equal(row.metadata.consentVersion,'workbook-email-v1');assert.equal(row.metadata.retentionStartsAt,row.created_at);
+ const h=await harness();try{await h.call();const row=h.rows.get(valid.requestId);assert.equal(row.metadata.privacyVersion,'test-privacy-v2');assert.equal(row.metadata.marketingConsent,false);assert.equal(row.metadata.consentVersion,'workbook-email-v1');assert.equal(Date.parse(row.metadata.retentionStartsAt),Date.parse(row.created_at));
  assert.equal((await h.call('/api/admin/workbook?key=fixture-admin',null)).code,401);const response=await fetch(h.base+'/api/workbook/'+valid.requestId);assert.equal(response.status,404);let latest;for(let i=0;i<20;i++)latest=await h.call();assert.equal(latest.code,429);assert.equal(h.mails,1);
  }finally{await h.close();}
 });
 test('untrusted public metadata cannot grant follow-up exemption or postpone retention',async()=>{
- const h=await harness();try{await h.call();const row=h.rows.get(valid.requestId);row.metadata.followUpStatus='active';row.metadata.followUpStartedAt='2099-01-01T00:00:00Z';row.metadata.retentionStartsAt='2099-01-01T00:00:00Z';h.advanceTo('2027-04-10T00:00:00Z');const list=await h.call('/api/admin/workbook',null,{headers:{'x-admin-key':'fixture-admin'}});const retention=list.body.requests[0].retention;assert.equal(retention.followUpStatus,'none');assert.equal(retention.startsAt,'2026-10-09T00:00:00.000Z');assert.equal(retention.needsVerification,true);assert.equal(retention.eligible,false);
+ const h=await harness();try{await h.call();const row=h.rows.get(valid.requestId);row.metadata.followUpStatus='active';row.metadata.followUpStartedAt='2099-01-01T00:00:00Z';row.metadata.retentionStartsAt='2099-01-01T00:00:00Z';h.advanceTo('2027-04-10T00:00:00Z');const list=await h.call('/api/admin/workbook',null,{headers:{'x-admin-key':'fixture-admin'}});const retention=list.body.requests[0].retention;assert.equal(retention.followUpStatus,'none');assert.equal(Date.parse(retention.startsAt),Date.parse('2026-10-09T00:00:00.000Z'));assert.equal(retention.needsVerification,true);assert.equal(retention.eligible,false);
  row.metadata.originProof='invalid';const r=await h.call();assert.equal(r.code,503);assert.equal(h.mails,1);const invalid=await h.call('/api/admin/workbook',null,{headers:{'x-admin-key':'fixture-admin'}});assert.equal(invalid.body.requests[0].revision,null);assert.equal(invalid.body.requests[0].retention.needsVerification,true);
  }finally{await h.close();}
 });
 export {harness,valid};
+
+
 
