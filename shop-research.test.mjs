@@ -12,3 +12,5 @@ test('publishers and manufacturers retained only with observed source',()=>{for(
 
 
 test('tracking parameters may differ but product paths and functional queries must match',()=>{const tracked={output:[{type:'web_search_call',status:'completed',action:{sources:[{url:url+'?utm_source=openai'}]}}]};assert.equal(verifyResearch(raw,tracked).suppliers[0].url,url+'?utm_source=openai');assert.equal(verifyResearch({...raw,suppliers:[{...supplier,url:url+'/other'}]},tracked).suppliers.length,0);assert.equal(verifyResearch({...raw,products:[{...product,url:url+'?product=2'}]},tracked).products.length,0);});
+
+test('unknown import duties and delivery terms cannot become zero or a promise',()=>{const r=verifyResearch({...raw,suppliers:[{...supplier,terms:'Ships to Netherlands guaranteed, import duty 0%'}]},response);assert.equal(r.importReview.rate,null);assert.equal(r.importReview.tariffCheckedAt,null);assert.equal(r.importReview.requiresRecheckBeforeOrder,true);assert.doesNotMatch(r.suppliers[0].terms,/guaranteed|0%/);assert.match(r.sections[1].text,/geen tariefcontroledatum/);});
