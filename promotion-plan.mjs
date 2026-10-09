@@ -3,10 +3,17 @@ const fail=(s,m)=>Object.assign(Error(m),{status:s});
 const string={type:'string'};
 const object=properties=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
 export const promotionSchema=object({summary:string,posts:{type:'array',minItems:4,maxItems:8,items:object({channel:{type:'string',enum:promotionChannels},day:{type:'integer',minimum:0,maximum:6},title:string,text:string,imageBrief:string})}});
-export function validatePromotion(raw,channels=['Facebook','Instagram']){
+export function validatePromotion(raw,channels=['Facebook','Instagram'],fields={}){
  if(typeof raw?.summary!=='string'||raw.summary.length>3000||!Array.isArray(raw.posts)||raw.posts.length!==Math.max(4,channels.length))throw fail(502,'Geen volledig weekvoorstel ontvangen.');
  for(const p of raw.posts)if(!channels.includes(p.channel)||!Number.isInteger(p.day)||p.day<0||p.day>6||!['title','text','imageBrief'].every(k=>typeof p[k]==='string'&&p[k].trim()&&p[k].length<=(k==='text'?2000:1000)))throw fail(502,'Een bericht is onvolledig of te lang.');
  if(channels.length>4&&channels.some(c=>!raw.posts.some(p=>p.channel===c)))throw fail(502,'Niet alle gekozen kanalen zijn uitgewerkt.');
+ const offer=fields['promotion-offer']||'';
+ const conditions=[...offer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0].trim());
+ const links=[...(fields['promotion-facts']||'').matchAll(/https?:\/\/[^\s<>]+/gi)].map(m=>m[0].replace(/[.!?,;]+$/,''));
+ for(const p of raw.posts){
+  if(/€|\bEUR\b|\beuro\b/i.test(p.text)&&conditions.some(c=>!p.text.toLowerCase().includes(c.toLowerCase())))throw fail(502,'Een prijsvoorwaarde ontbreekt in het concept. Je eerdere berichten blijven bewaard.');
+  if(p.channel==='Facebook'&&links.some(link=>!p.text.includes(link)))throw fail(502,'Een aangeleverde link ontbreekt in het Facebookconcept. Je eerdere berichten blijven bewaard.');
+ }
  return {kind:'promotion-plan',summary:raw.summary,posts:raw.posts.map(({channel,day,title,text,imageBrief})=>({channel,day,title,text,imageBrief}))};
 }
 export async function generatePromotion(fields,{env=process.env,fetchImpl=fetch}={}){
@@ -17,5 +24,5 @@ export async function generatePromotion(fields,{env=process.env,fetchImpl=fetch}
  if(!r.ok)throw fail(503,'De promotie-agent is tijdelijk niet beschikbaar.');
  const data=await r.json();if(data.status!=='completed')throw fail(502,'Het weekvoorstel is niet afgerond.');
  let raw;try{raw=JSON.parse((data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(502,'Het weekvoorstel kon niet worden gelezen.');}
- return validatePromotion(raw,channels);
+ return validatePromotion(raw,channels,fields);
 }
