@@ -1,4 +1,4 @@
-﻿// server.js (ESM) — drop-in vervanger
+// server.js (ESM) — drop-in vervanger
 
 import "dotenv/config";
 import express from "express";
@@ -12,6 +12,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { createMollieClient } from "@mollie/api-client";
+import { createAmcinovaTestPayments } from "./amcinova-test-payments.mjs";
 
 // ==== Config ====
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 // ==== Mollie client ====
 const mollie = MOLLIE_API_KEY ? createMollieClient({ apiKey: MOLLIE_API_KEY }) : null;
+const amcinovaTestPayments = createAmcinovaTestPayments({ createClient:createMollieClient });
 
 const requireMollie = (res) => {
   if (mollie && (MOLLIE_API_KEY.startsWith("test_") || MOLLIE_API_KEY.startsWith("live_"))) return true;
@@ -161,7 +163,7 @@ function buildPayoutOverview(payments = [], commissions = []) {
   for (const payment of payments || []) {
     const metadata = payment.metadata || {};
     const code = cleanReferralCode(metadata.buyerReferralCode || "");
-    if (!code || payment.status !== "paid") continue;
+    if (!code || payment.status !== "paid" || metadata.amcinovaTest === true) continue;
     if (!ownersByCode.has(code)) {
       ownersByCode.set(code, {
         code,
@@ -326,6 +328,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
 app.use(express.static(path.join(__dirname, "public"))); // serveert /public
 
+app.get('/api/amcinova/payments/config', (_req,res) => {
+  res.set('Cache-Control','no-store');
+  res.json({ok:true,configured:amcinovaTestPayments.ready,mode:amcinovaTestPayments.mode,realPaymentsEnabled:false});
+});
+app.get('/api/admin/amcinova/test-payment/:id', async(req,res) => {
+  res.set('Cache-Control','no-store');
+  if(req.query?.key || !hasAdminAccess(req)) return res.status(401).json({ok:false,error:'Admin sign-in required.'});
+  try {
+    const p=await amcinovaTestPayments.get(req.params.id);
+    return res.json({ok:true,id:p.id,status:p.status,mode:p.mode,amount:p.amount,productAccessGranted:false});
+  } catch(e) { return res.status(e.status||503).json({ok:false,error:'Test payment could not be verified.'}); }
+});
+app.post('/api/amcinova/payments/webhook', async(req,res) => {
+  try {
+    const p=await amcinovaTestPayments.get(req.body?.id);
+    await recordPayment(p);
+    // Test mode must never activate real subscriptions or customer access.
+    return res.status(200).end();
+  } catch(e) {
+    return res.status([400,404].includes(e.status)?200:503).end();
+  }
+});
 // ==== Basispagina's ====
 app.get("/", (_req, res) => {
   res.json({
@@ -384,7 +408,7 @@ app.get("/api/admin/overview", async (req, res) => {
       method: "GET",
       query: "?select=*&order=created_at.desc&limit=500",
     });
-    const paidPayments = (payments || []).filter((row) => row.status === "paid");
+    const paidPayments = (payments || []).filter((row) => row.status === "paid" && row.metadata?.amcinovaTest !== true);
     return res.json({
       ok: true,
       summary: {
@@ -791,7 +815,7 @@ function cleanReturnUrl(value) {
 
 async function createSiteBuilderCheckout(req, res) {
   try {
-    if (!requireMollie(res)) return;
+    if (!amcinovaTestPayments.ready) return res.status(503).json({ok:false,error:"Amcinova test payments are not configured."});
 
     const email = cleanEmail(req.body?.email || "");
     const phone = cleanPhone(req.body?.phone || "");
@@ -799,7 +823,7 @@ async function createSiteBuilderCheckout(req, res) {
     const leadId = cleanText(req.body?.leadId || "", 80);
     const agent = cleanText(req.body?.agent || "Site Builder Agent", 80);
     const requestedPlan = cleanText(req.body?.plan || "sitebuilder_7", 80);
-    const returnUrl = cleanReturnUrl(req.body?.returnUrl);
+    const returnUrl = "https://agents.amcinova.com/winkelmand.html?mollie=test-return";
     const checkoutPlans = {
       affiliate_starter_17: {
         id: "affiliate_starter_17",
@@ -832,7 +856,8 @@ async function createSiteBuilderCheckout(req, res) {
         description: "Amcinova Site Builder toegang",
       },
     };
-    const checkoutPlan = checkoutPlans[requestedPlan] || checkoutPlans.sitebuilder_7;
+    const checkoutPlan = checkoutPlans[requestedPlan];
+    if (!checkoutPlan) return res.status(400).json({ok:false,error:"Unknown test plan."});
 
     if (!email && !phone) {
       return res.status(400).json({ ok: false, error: "E-mail of telefoon is verplicht." });
@@ -840,7 +865,7 @@ async function createSiteBuilderCheckout(req, res) {
 
     const paymentConfig = addWebhookUrlWhenPublic({
       amount: { currency: "EUR", value: checkoutPlan.value },
-      description: checkoutPlan.description,
+      description: "TEST - " + checkoutPlan.description,
       redirectUrl: returnUrl,
       metadata: {
         plan: checkoutPlan.id,
@@ -851,12 +876,12 @@ async function createSiteBuilderCheckout(req, res) {
         email: email || null,
         phone: phone || null,
       },
-    }, "/api/webhook");
+    }, "/api/amcinova/payments/webhook");
 
-    const payment = await mollie.payments.create(paymentConfig);
+    const payment = await amcinovaTestPayments.create(paymentConfig);
     await recordPayment(payment, { checkoutUrl: payment.getCheckoutUrl() });
 
-    return res.json({ ok: true, id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
+    return res.json({ ok: true, mode:"test", productAccessGranted:false, id: payment.id, checkoutUrl: payment.getCheckoutUrl() });
   } catch (error) {
     console.error("[/api/amcinova/sitebuilder/checkout] ERROR:", error?.response?.body || error);
     return res.status(500).json({ ok: false, error: "Betaling starten mislukt" });
