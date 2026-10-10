@@ -322,7 +322,7 @@ app.use(cors({
   },
 }));
 registerQuoteRoutes(app, { json: express.json });
-registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest });
+registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest, testPayments:amcinovaTestPayments });
 registerWorkbookRoutes(app, { json:express.json, hasAdminAccess:req=>!req.query?.key&&hasAdminAccess(req), mailTransport:createWorkbookRelayTransport() || createWorkbookSmtpTransport() });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten

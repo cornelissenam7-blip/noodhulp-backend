@@ -1,3 +1,4 @@
+import {startCartPayment,verifyCartPayment} from './cart-test-payment.mjs';
 import {customerCatalog,customerBundles,validateSelection} from './customer-catalog.mjs';
 import {generateAgent} from './agent-ai.mjs';
 import {proposeQuote} from './quote-ai.mjs';
@@ -28,7 +29,7 @@ export function isPublicKey(key){
  if(/^sb_publishable_[A-Za-z0-9_-]+$/.test(key))return true;
  try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
 }
-export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb,planAdvisor=generateAgent}={}){
+export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb,testPayments,planAdvisor=generateAgent}={}){
  const credits=creditClient({env,fetchImpl});
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
  const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);
@@ -118,6 +119,29 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
  app.post('/api/customer/tester-application',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req),application=testerApplication(req.body,u.email);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,tester_application:application},true);res.json({ok:true,application});}));
  app.get('/api/admin/tester-applications',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const rows=await adminDb('amcinova_customer_profiles',{method:'GET',query:'?select=user_id,tester_application&tester_application=not.is.null&order=user_id&limit=50&offset='+offset});res.json({ok:true,applications:rows,nextOffset:rows.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Aanmeldingen konden niet worden geladen.'});}});
  app.post('/api/customer/test-orders',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req);let row;try{row=testOrder(req.body,u);}catch(e){throw fault(400,e.message);}const query='?user_id=eq.'+u.id+'&id=eq.'+row.id;let rows=await db(u,'amcinova_test_orders',query);if(!rows.length){try{rows=await db(u,'amcinova_test_orders','',row);}catch(e){if(e.status!==409)throw e;rows=await db(u,'amcinova_test_orders',query);}}if(!rows[0])throw fault(409,'Testaanvraag niet bevestigd.');res.json({ok:true,order:rows[0]});}));
+
+ async function ownedTestOrder(req,u){
+  if(!uuid.test(req.params.id))throw fault(400,'Ongeldige testaanvraag.');
+  const rows=await db(u,'amcinova_test_orders','?user_id=eq.'+u.id+'&id=eq.'+req.params.id);
+  if(!rows[0])throw fault(404,'Testaanvraag niet gevonden.');return rows[0];
+ }
+ app.post('/api/customer/test-orders/:id/payment',json({limit:'2kb'}),wrap(async(req,res)=>{
+  const u=await identity(req),order=await ownedTestOrder(req,u);
+  if(!testPayments?.ready||!adminDb)throw fault(503,'Testbetalingen zijn nog niet beschikbaar.');
+  const payment=await startCartPayment({order,user:u,payments:testPayments,save:async estimate=>{
+   const rows=await adminDb('amcinova_test_orders',{method:'PATCH',query:'?id=eq.'+order.id+'&user_id=eq.'+u.id,body:{estimate},prefer:'return=representation'});
+   if(!rows?.length)throw fault(503,'Testbetaling kon niet worden opgeslagen. Probeer dezelfde aanvraag opnieuw.');
+  }});
+  const checkoutUrl=payment.getCheckoutUrl();
+  if(!/^https:\/\/(?:[a-z0-9-]+\.)?mollie\.com\//i.test(checkoutUrl||''))throw fault(503,'Betaalpagina niet beschikbaar.');
+  res.json({ok:true,payment:verifyCartPayment(payment,order,u),checkoutUrl});
+ }));
+ app.get('/api/customer/test-orders/:id/payment',wrap(async(req,res)=>{
+  const u=await identity(req),order=await ownedTestOrder(req,u);
+  if(!order.estimate.testPaymentId)throw fault(404,'Nog geen testbetaling gestart.');
+  const payment=await testPayments.get(order.estimate.testPaymentId);
+  res.json({ok:true,order,payment:verifyCartPayment(payment,order,u)});
+ }));
  app.get('/api/admin/test-orders',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const orders=await adminDb('amcinova_test_orders',{method:'GET',query:'?select=*&order=created_at.desc,id.desc&limit=50&offset='+offset});res.json({ok:true,orders,nextOffset:orders.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Testaanvragen konden niet worden geladen.'});}});
  app.get('/api/customer/website-plan',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=website_plan');res.json({ok:true,plan:rows[0]?.website_plan||null});}));
  app.post('/api/customer/website-plan',json({limit:'20kb'}),wrap(async(req,res)=>{const u=await identity(req),plan=websitePlan(req.body?.plan);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,website_plan:plan},true);res.json({ok:true,plan});}));
