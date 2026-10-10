@@ -1,3 +1,4 @@
+import {adminTestPayment} from './admin-test-payment.mjs';
 import {startCartPayment,verifyCartPayment} from './cart-test-payment.mjs';
 import {customerCatalog,customerBundles,validateSelection} from './customer-catalog.mjs';
 import {generateAgent} from './agent-ai.mjs';
@@ -142,7 +143,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   const payment=await testPayments.get(order.estimate.testPaymentId);
   res.json({ok:true,order,payment:verifyCartPayment(payment,order,u)});
  }));
- app.get('/api/admin/test-orders',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const orders=await adminDb('amcinova_test_orders',{method:'GET',query:'?select=*&order=created_at.desc,id.desc&limit=50&offset='+offset});res.json({ok:true,orders,nextOffset:orders.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Testaanvragen konden niet worden geladen.'});}});
+ app.get('/api/admin/test-orders',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const orders=await adminDb('amcinova_test_orders',{method:'GET',query:'?select=*&order=created_at.desc,id.desc&limit=50&offset='+offset});for(const order of orders){order.testPayment=await adminTestPayment(order,testPayments);}res.json({ok:true,orders,nextOffset:orders.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Testaanvragen konden niet worden geladen.'});}});
  app.get('/api/customer/website-plan',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=website_plan');res.json({ok:true,plan:rows[0]?.website_plan||null});}));
  app.post('/api/customer/website-plan',json({limit:'20kb'}),wrap(async(req,res)=>{const u=await identity(req),plan=websitePlan(req.body?.plan);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,website_plan:plan},true);res.json({ok:true,plan});}));
  app.get('/api/customer/selection',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=selected_products');res.json({ok:true,selected:rows[0]?.selected_products||[],catalog:customerCatalog,bundles:customerBundles});}));
