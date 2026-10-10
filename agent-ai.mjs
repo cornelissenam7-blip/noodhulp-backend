@@ -44,18 +44,22 @@ export function checkConcreteClaims(p,input){
  const source=Object.entries(input.fields).filter(([k])=>k.startsWith('profile-')||['agent-instructions','builder-offer','ad-offer','ad-benefit','campaign-budget'].includes(k)).map(([,v])=>v).join(' ');
  const money=x=>[...x.matchAll(/(?:€|EUR)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*euro\b/gi)].map(m=>Number((m[1]||m[2]).replace(',','.')));
  const supplied=money(source),issues=[];
+ if(input.task==='campaign'&&!/confirmed testimonials|geverifieerde klantreviews/i.test(source)&&p.sections.some(s=>/testimonials|klantreviews|customer reviews/i.test(s.text)))issues.push('Gebruik geen klantreviews of testimonials zonder expliciet aangeleverd, geverifieerd materiaal. Stel een productdemonstratie voor.');
  // Campaign allocation is advice; preserve its supplied budget separately below.
  if(input.task!=='campaign'&&money(text).some(n=>!supplied.includes(n)))issues.push('Verwijder bedragen die niet letterlijk zijn opgegeven.');
  for(const ad of p.ads)if(ad.headline.length>30||ad.text.length>90)issues.push('Maak advertentiekoppen maximaal 30 tekens en teksten maximaal 90 tekens.');
  for(const ad of p.ads){
   if(ad.cta.trim()&&ad.text.toLowerCase().includes(ad.cta.trim().toLowerCase()))issues.push('Zet de oproep tot actie uitsluitend in cta, niet ook in text.');
-  if(/(?:^|[.!?]\s+)(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
+  if(/(?:^|[.!?]\s+)(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|sign up|secure your|join|enrol)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
+  const link=input.fields['ad-link'];
+  if(link && ![ad.text,ad.cta].some(value=>value.includes(link)))issues.push('Behoud de aangeleverde contactlink in cta.');
  }
  return [...new Set(issues)];
 }
 export function cleanAgentInput(body){
  if(!tasks.includes(body?.task)||!body.fields||typeof body.fields!=='object'||Array.isArray(body.fields))throw fail(400,'Ongeldige agentaanvraag.');
  const fields={};for(const [key,value] of Object.entries(body.fields)){if(!/^[a-z][a-z0-9-]{0,60}$/.test(key)||typeof value!=='string'||value.length>16000)throw fail(400,'Controleer de invoer.');fields[key]=value;}
+ if(fields['ad-link']){try{const u=new URL(fields['ad-link']);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)throw Error();}catch{throw fail(400,'Vul een geldige openbare contactlink in.');}}
  if(Object.keys(fields).length>40||JSON.stringify(fields).length>24000)throw fail(400,'De invoer is te lang.');
  if(body.task==='review'&&!(fields['review-content']||'').trim())throw fail(400,'Plak de websitetekst in het reviewvak. Een URL alleen is niet genoeg: de AI leest websites hier niet automatisch.');
  return{task:body.task,fields};

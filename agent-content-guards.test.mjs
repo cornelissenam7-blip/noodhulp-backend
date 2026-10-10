@@ -14,3 +14,20 @@ test('price conditions and supplied Facebook booking link must survive',()=>{
  assert.throws(()=>validatePromotion(week('€20 per gezin, exclusief materialen.'),['Facebook'],fields),/link ontbreekt/);
  assert.equal(validatePromotion(week('€20 per gezin, exclusief materialen. https://example.com/boeken?test=amcinova'),['Facebook'],fields).posts.length,4);
 });
+test('English ads retain supplied link and have only one call to action',()=>{
+ const input={task:'ads',fields:{'ad-link':'https://example.invalid/book'}};
+ assert.ok(checkConcreteClaims(result('Workshop. Book now!'),input).length);
+ const ad=result('Nature workshop.');ad.ads[0].cta='Book: https://example.invalid/book';
+ assert.deepEqual(checkConcreteClaims(ad,input),[]);
+});
+test('campaign cannot propose testimonials that have not been verified',()=>{
+ const proposal={...result(''),ads:[],sections:[{heading:'Creative',text:'Video with testimonials from previous participants.'}]};
+ assert.ok(checkConcreteClaims(proposal,{task:'campaign',fields:{}}).length);
+ proposal.sections[0].text='Video demonstrating the workshop activity.';
+ assert.deepEqual(checkConcreteClaims(proposal,{task:'campaign',fields:{}}),[]);
+});
+test('English promotion price conditions remain mandatory',()=>{
+ const english={'promotion-offer':'Workshop €80 excluding materials.','promotion-facts':''};
+ assert.throws(()=>validatePromotion(week('Workshop €80.'),['Facebook'],english),/prijsvoorwaarde/);
+ assert.equal(validatePromotion(week('Workshop €80 excluding materials.'),['Facebook'],english).posts.length,4);
+});

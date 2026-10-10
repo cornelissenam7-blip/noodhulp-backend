@@ -8,7 +8,7 @@ export function validatePromotion(raw,channels=['Facebook','Instagram'],fields={
  for(const p of raw.posts)if(!channels.includes(p.channel)||!Number.isInteger(p.day)||p.day<0||p.day>6||!['title','text','imageBrief'].every(k=>typeof p[k]==='string'&&p[k].trim()&&p[k].length<=(k==='text'?2000:1000)))throw fail(502,'Een bericht is onvolledig of te lang.');
  if(channels.length>4&&channels.some(c=>!raw.posts.some(p=>p.channel===c)))throw fail(502,'Niet alle gekozen kanalen zijn uitgewerkt.');
  const offer=fields['promotion-offer']||'';
- const conditions=[...offer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0].trim());
+ const conditions=[...offer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.|excluding|including)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0].trim());
  const links=[...(fields['promotion-facts']||'').matchAll(/https?:\/\/[^\s<>]+/gi)].map(m=>m[0].replace(/[.!?,;]+$/,''));
  for(const p of raw.posts){
   if(/€|\bEUR\b|\beuro\b/i.test(p.text)&&conditions.some(c=>!p.text.toLowerCase().includes(c.toLowerCase())))throw fail(502,'Een prijsvoorwaarde ontbreekt in het concept. Je eerdere berichten blijven bewaard.');

@@ -21,6 +21,7 @@ test('topup routes reuse payment, verify owner, delay grant until paid and cance
   const post=()=>fetch(base+'/api/customer/test-topups',{method:'POST',headers,body:JSON.stringify({id,product:'campaign',units:25,user_id:id,amount_cents:1})});
   assert.equal((await post()).status,200);assert.equal((await post()).status,200);assert.equal(creates,1);
   let r=await fetch(base+'/api/customer/test-topups/'+id+'/payment',{headers});assert.equal((await r.json()).credited,false);assert.equal(grants,0);
+  for(const unpaid of ['pending','canceled','failed','expired']){status=unpaid;r=await fetch(base+'/api/customer/test-topups/'+id+'/payment',{headers});const d=await r.json();assert.equal(d.credited,false);assert.equal(grants,0);}
   status='paid';r=await fetch(base+'/api/customer/test-topups/'+id+'/payment',{headers});assert.equal((await r.json()).credited,true);assert.equal(grants,1);
   r=await fetch(base+'/api/customer/test-services/campaign',{method:'POST',headers,body:JSON.stringify({cancel:true,user_id:id})});assert.equal(r.status,200);
  }finally{await new Promise(r=>s.close(r));}
