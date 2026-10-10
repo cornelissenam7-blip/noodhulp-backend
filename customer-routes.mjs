@@ -11,6 +11,8 @@ import {testOrder} from './test-order-model.mjs';
 import {activateTestAccess} from './test-access.mjs';
 import {testerApplication} from './tester-application.mjs';
 import {validateSnapshot} from './quote-routes.mjs';
+import {customerAIScope} from './customer-ai-scope.mjs';
+import {testBillingRequest,verifyTestTopup,startTestTopup,testBillingAllowed,testPacks} from './test-billing.mjs';
 const products=new Set(customerCatalog.map(p=>p.code));
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fault=(status,message)=>Object.assign(new Error(message),{status});
@@ -56,6 +58,54 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   const a=access[0];if(!a||a.status!=='active'||(a.expires_at&&Date.parse(a.expires_at)<=Date.now()))throw fault(403,'Je hebt geen actieve toegang tot dit product.');
   if(a.source==='purchase'){const p=await db(u,'amcinova_customer_purchases','?user_id=eq.'+u.id+'&id=eq.'+a.purchase_id+'&product_code=eq.'+product+'&status=eq.paid&select=id,verified_at');if(!p[0]?.verified_at)throw fault(403,'Voor dit product is geen bevestigde aankoop gevonden.');}
  }
+ async function testBillingUser(req){
+  const u=await identity(req);if(!testBillingAllowed(env,u)||!adminDb||!testPayments?.ready)throw fault(503,'Deze proefroute is nog niet geactiveerd.');return u;
+ }
+ async function ownedTopup(req,u){
+  if(!uuid.test(req.params.id))throw fault(400,'Ongeldige tegoedaanvraag.');
+  const rows=await db(u,'amcinova_test_credit_payments','?user_id=eq.'+u.id+'&id=eq.'+req.params.id);
+  if(!rows[0])throw fault(404,'Testaanvraag niet gevonden.');return rows[0];
+ }
+ app.get('/api/customer/test-billing',wrap(async(req,res)=>{const u=await identity(req);res.json({ok:true,enabled:testBillingAllowed(env,u),mode:'test',packs:testPacks,maxUnitsPerTrial:100,automaticDebit:false,commercialSubscription:false});}));
+ app.post('/api/customer/test-topups',json({limit:'5kb'}),wrap(async(req,res)=>{
+  const u=await testBillingUser(req),row=testBillingRequest(req.body,u);
+  await requireProduct(u,row.product_code);
+  const access=await db(u,'amcinova_customer_access','?user_id=eq.'+u.id+'&product_code=eq.'+row.product_code+'&select=source');
+  if(access[0]?.source!=='trial')throw fault(403,'Deze tegoedtest is uitsluitend voor proeftoegang.');
+  let rows=await db(u,'amcinova_test_credit_payments','?user_id=eq.'+u.id+'&id=eq.'+row.id);
+  if(!rows.length){
+   const previous=await db(u,'amcinova_test_credit_payments','?user_id=eq.'+u.id+'&product_code=eq.'+row.product_code+'&select=units');
+   if(previous.reduce((sum,p)=>sum+p.units,0)+row.units>100)throw fault(409,'Maximaal 100 extra testaanvragen per proefproduct.');
+   const created=await adminDb('rpc/amcinova_create_test_topup',{method:'POST',body:{p_user:u.id,p_id:row.id,p_product:row.product_code,p_units:row.units}});rows=[created];
+  }
+  const saved=rows[0];if(!saved||saved.product_code!==row.product_code||saved.units!==row.units||saved.amount_cents!==row.amount_cents||saved.user_id!==u.id)throw fault(409,'Aanvraagnummer hoort bij een andere keuze.');
+  const payment=await startTestTopup({row:saved,user:u,payments:testPayments,save:async payment_id=>{
+   const updated=await adminDb('amcinova_test_credit_payments',{method:'PATCH',query:'?user_id=eq.'+u.id+'&id=eq.'+row.id+'&payment_id=is.null',body:{payment_id},prefer:'return=representation'});
+   if(!updated?.length){const latest=await db(u,'amcinova_test_credit_payments','?user_id=eq.'+u.id+'&id=eq.'+row.id);if(latest[0]?.payment_id!==payment_id)throw fault(409,'Betaalkoppeling niet bevestigd.');}
+  }});
+  const checkoutUrl=payment.getCheckoutUrl();if(['open','pending'].includes(payment.status)&&!/^https:\/\/(?:[a-z0-9-]+\.)?mollie\.com\//i.test(checkoutUrl||''))throw fault(503,'Testbetaalpagina ontbreekt.');
+  res.json({ok:true,requestId:row.id,payment:verifyTestTopup(payment,saved,u),checkoutUrl});
+ }));
+ app.get('/api/customer/test-topups/:id/payment',wrap(async(req,res)=>{
+  const u=await testBillingUser(req),row=await ownedTopup(req,u);if(!row.payment_id)throw fault(404,'Nog geen testbetaling gekoppeld.');
+  const payment=await testPayments.get(row.payment_id),verified=verifyTestTopup(payment,row,u);let credited=false;
+  if(verified.status==='paid'){
+   const result=await adminDb('rpc/amcinova_complete_test_topup',{method:'POST',body:{p_user:u.id,p_id:row.id,p_payment:payment.id}});credited=typeof result==='string'&&uuid.test(result);
+   if(!credited)throw fault(503,'Het testtegoed is nog niet bevestigd. Controleer dezelfde betaling opnieuw.');
+  }
+  res.json({ok:true,payment:verified,credited,commercialPurchase:false});
+ }));
+ app.post('/api/customer/trials/:product/cancel',json({limit:'1kb'}),wrap(async(req,res)=>{
+  const u=await testBillingUser(req);if(!products.has(req.params.product))throw fault(400,'Onbekend product.');
+  const result=await adminDb('rpc/amcinova_cancel_own_trial',{method:'POST',body:{p_user:u.id,p_product:req.params.product}});
+  res.json({ok:true,result});
+ }));
+ app.get('/api/customer/test-services',wrap(async(req,res)=>{const u=await testBillingUser(req);const services=await db(u,'amcinova_test_services','?user_id=eq.'+u.id+'&select=product_code,period_end,cancel_at_period_end,canceled_at,mode');res.json({ok:true,services,automaticDebit:false});}));
+ app.post('/api/customer/test-services/:product',json({limit:'1kb'}),wrap(async(req,res)=>{
+  const u=await testBillingUser(req);if(!products.has(req.params.product)||typeof req.body?.cancel!=='boolean')throw fault(400,'Kies een geldige testservice.');
+  const result=await adminDb('rpc/amcinova_test_service',{method:'POST',body:{p_user:u.id,p_product:req.params.product,p_cancel:req.body.cancel}});
+  res.json({ok:true,service:result});
+ }));
  app.get('/api/customer/access/:product',wrap(async(req,res)=>{const u=await identity(req);await requireProduct(u,req.params.product);res.json({ok:true,user:{id:u.id,email:u.email},product:req.params.product});}));
  let aiBusy=false,aiStart=0,aiCount=0;
  const helpLimits=new Map();
@@ -77,12 +127,12 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
  }));
  app.post('/api/customer/ai/:mode',json({limit:'100kb'}),wrap(async(req,res)=>{
   const u=await identity(req),mode=req.params.mode;
-  if(!['generate','proposal','drawing'].includes(mode))throw fault(400,'Onbekend voorstel.');
-  const product=mode==='generate'?'sitebuilder':'offertetool';await requireProduct(u,product);
-  if(mode==='generate'&&!['site','advice','review'].includes(req.body?.task))throw fault(403,'Dit voorstel hoort niet bij je product.');
+  const {product,kind}=customerAIScope(mode,req.body);
+  if(!['sitebuilder','offertetool'].includes(product)&&env.AMCINOVA_CUSTOMER_AGENTS_ENABLED!=='true')throw fault(503,'Deze klantkoppeling wordt nog afgerond.');
+  await requireProduct(u,product);
   if(Date.now()-aiStart>3600000){aiStart=Date.now();aiCount=0;}if(aiBusy||aiCount>=30)throw fault(429,'De agent is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
   aiBusy=true;const requestId=randomUUID();
-  try{const result=await credits.run(u.id,product,requestId,async()=>{aiCount++;return(mode==='generate'?generateAgent:mode==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});});res.json({ok:true,[mode==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
+  try{const result=await credits.run(u.id,product,requestId,async()=>{aiCount++;return(kind==='generate'?generateAgent:kind==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});});res.json({ok:true,[kind==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
  }));
  app.get('/api/customer/credits',wrap(async(req,res)=>{
   const u=await identity(req);

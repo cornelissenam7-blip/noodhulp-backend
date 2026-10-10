@@ -7,7 +7,9 @@ export async function activateTestAccess({env=process.env,order,user,payment,fet
  if(payment.id!==order.estimate.testPaymentId||Number(payment.amountRefunded?.value||0)>0||Number(payment.amountChargedBack?.value||0)>0)throw Object.assign(Error('Testbetaling is niet geldig voor proeftoegang.'),{status:409});
  if(!env.SUPABASE_SERVICE_ROLE_KEY||!env.SUPABASE_URL)throw Object.assign(Error('Proeftoegang is nog niet beschikbaar.'),{status:503});
  const result=[];
- for(const product of order.selected.filter(p=>['sitebuilder','offertetool'].includes(p))){
+ const supported=env.AMCINOVA_CUSTOMER_AGENTS_ENABLED==='true'?['sitebuilder','offertetool','planner','shophulp','campaign','admaker','promotie']:['sitebuilder','offertetool'];
+ const selection=[...new Set([...order.selected,...(order.selected.includes('promotie')?['admaker']:[])])];
+ for(const product of selection.filter(p=>supported.includes(p))){
   const key=env.SUPABASE_SERVICE_ROLE_KEY;
   const r=await fetchImpl(env.SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/rpc/amcinova_activate_test_access',{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({p_user:user.id,p_product:product,p_payment:payment.id}),signal:AbortSignal.timeout(12000)});
   if(!r.ok)throw Object.assign(Error('Proeftoegang kon niet worden bevestigd. Controleer dezelfde testbetaling opnieuw.'),{status:503});

@@ -23,3 +23,10 @@ test('verified paid test invokes only the bounded trial RPC',async()=>{
  }});
  assert.equal(count,1);assert.equal(r[0].credits,5);
 });
+test('promotion trial includes AdMaker once only after expanded rollout is enabled',async()=>{
+ const promo=testOrder({id:order.id,selected:['promotie'],method:'once',terms:12,quoteService:0,siteService:0,priceVersion:'proposal-20261010-quote'},user);promo.estimate.testPaymentId=payment.id;
+ const paid={...payment,amount:{currency:'EUR',value:(promo.estimate.first/100).toFixed(2)}};const called=[];
+ await activateTestAccess({env,user,order:promo,payment:paid,fetchImpl:()=>assert.fail('expanded rollout disabled')});
+ await activateTestAccess({env:{...env,AMCINOVA_CUSTOMER_AGENTS_ENABLED:'true'},user,order:promo,payment:paid,fetchImpl:async(_url,o)=>{called.push(JSON.parse(o.body).p_product);return {ok:true,json:async()=>({status:'trial'})};}});
+ assert.deepEqual(called,['promotie','admaker']);
+});

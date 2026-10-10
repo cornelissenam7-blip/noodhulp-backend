@@ -4,6 +4,18 @@ const alice='11111111-1111-4111-8111-111111111111',bob='22222222-2222-4222-8222-
 const key='sb_publishable_TESTONLY',token='Bearer '+ 'a'.repeat(30);
 async function server(env,fn,run){const app=express();registerCustomerRoutes(app,{json:express.json,env,fetchImpl:fn});const s=app.listen(0,'127.0.0.1');await new Promise(r=>s.once('listening',r));try{await run('http://127.0.0.1:'+s.address().port);}finally{await new Promise(r=>s.close(r));}}
 const env={CUSTOMER_ACCOUNTS_ENABLED:'true',SUPABASE_URL:'https://test.invalid',SUPABASE_ANON_KEY:key};const response=(data,status=200)=>({ok:status<400,status,json:async()=>data});
+test('new agent routes reserve only their own product credits',async()=>{
+ for(const [mode,task,fields] of [['admaker','ads',{}],['campaign','campaign',{}],['promotie','advice',{'research-mode':'promotion-plan'}],['shophulp','advice',{'support-mode':'webshop'}]]){
+  let reserved=false;await server({...env,AMCINOVA_CUSTOMER_AGENTS_ENABLED:'true',CUSTOMER_AI_CREDITS_ENABLED:'true',SUPABASE_SERVICE_ROLE_KEY:'TEST-only'},async(url,o)=>{
+   if(url.endsWith('/auth/v1/user'))return response({id:alice});
+   if(url.includes('amcinova_customer_access')){assert.ok(url.includes('product_code=eq.'+mode));return response([{status:'active',source:'trial'}]);}
+   assert.ok(url.endsWith('/rpc/amcinova_credit_reserve'));assert.equal(JSON.parse(o.body).p_product,mode);assert.equal(JSON.parse(o.body).p_user,alice);reserved=true;return response(false);
+  },async url=>{const r=await fetch(url+'/api/customer/ai/'+mode,{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({task,fields,product:'sitebuilder',user_id:bob})});assert.equal(r.status,402);assert.ok(reserved);});
+ }
+});
+test('new agents fail closed until expressly enabled',async()=>{
+ await server(env,async url=>{assert.ok(url.endsWith('/auth/v1/user'));return response({id:alice});},async url=>{const r=await fetch(url+'/api/customer/ai/admaker',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify({task:'ads',fields:{}})});assert.equal(r.status,503);});
+});
 test('test-order retries insert once and never write paid records',async()=>{let row,inserts=0;await server(env,async(url,o)=>{if(url.endsWith('/auth/v1/user'))return response({id:alice,email:'test@example.invalid'});assert.ok(url.includes('amcinova_test_orders'));if(o.method==='POST'){row=JSON.parse(o.body);inserts++;assert.equal(row.user_id,alice);assert.equal(row.status,'TEST');return response([row]);}assert.ok(url.includes('user_id=eq.'+alice));return response(row?[row]:[]);},async url=>{const body={id:bob,selected:['promotie','admaker'],method:'once',terms:6,quoteService:0,siteService:0,user_id:bob,status:'paid'};for(let i=0;i<2;i++){const r=await fetch(url+'/api/customer/test-orders',{method:'POST',headers:{Authorization:token,'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,200);assert.equal((await r.json()).order.status,'TEST');}assert.equal(inserts,1);assert.equal((await fetch(url+'/api/admin/test-orders',{headers:{Authorization:token}})).status,401);});});
 test('disabled account rollout cannot access auth or database',async()=>{await server({},()=>assert.fail('network'),async url=>{assert.equal((await fetch(url+'/api/customer/me')).status,503);assert.equal((await(await fetch(url+'/api/customer/config')).json()).enabled,false);});});
 test('service key is never exposed as public config',()=>{assert.equal(isPublicKey('sb_secret_test'),false);assert.equal(isPublicKey('x.'+Buffer.from(JSON.stringify({role:'service_role'})).toString('base64url')+'.x'),false);assert.equal(isPublicKey(key),true);});

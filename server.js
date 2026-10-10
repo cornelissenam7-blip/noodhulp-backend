@@ -80,6 +80,7 @@ async function supabaseRequest(table, { method = "POST", query = "", body = null
     method,
     headers: {
       apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
       ...(prefer ? { Prefer: prefer } : {}),
     },
