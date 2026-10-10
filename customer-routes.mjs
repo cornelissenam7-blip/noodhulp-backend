@@ -133,7 +133,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
    if(!rows?.length)throw fault(503,'Testbetaling kon niet worden opgeslagen. Probeer dezelfde aanvraag opnieuw.');
   }});
   const checkoutUrl=payment.getCheckoutUrl();
-  if(!/^https:\/\/(?:[a-z0-9-]+\.)?mollie\.com\//i.test(checkoutUrl||''))throw fault(503,'Betaalpagina niet beschikbaar.');
+  if(['open','pending'].includes(payment.status)&&!/^https:\/\/(?:[a-z0-9-]+\.)?mollie\.com\//i.test(checkoutUrl||''))throw fault(503,'Betaalpagina niet beschikbaar.');
   res.json({ok:true,payment:verifyCartPayment(payment,order,u),checkoutUrl});
  }));
  app.get('/api/customer/test-orders/:id/payment',wrap(async(req,res)=>{

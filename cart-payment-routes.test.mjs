@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import express from 'express';
+import {registerCustomerRoutes} from './customer-routes.mjs';import {testOrder} from './test-order-model.mjs';
+const user={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',email:'TEST-route@example.invalid'},id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+test('authenticated cart route persists payment, ignores posted amount, and verifies every return outcome',async()=>{
+ let row=testOrder({id,selected:['sitebuilder'],method:'once',terms:6,quoteService:0,siteService:0},user),creates=0,status='open';
+ const payment=()=>({id:'tr_TESTroute',mode:'test',status,amount:{currency:'EUR',value:'136.79'},metadata:{source:'amcinova',amcinovaTest:true,orderId:id,userId:user.id},getCheckoutUrl:()=>status==='open'?'https://www.mollie.com/checkout/test':null});
+ const app=express();registerCustomerRoutes(app,{json:express.json,env:{SUPABASE_URL:'https://test.invalid',SUPABASE_ANON_KEY:'sb_publishable_TEST'},fetchImpl:async(url)=>({ok:true,json:async()=>url.endsWith('/auth/v1/user')?user:(assert.ok(url.includes('user_id=eq.'+user.id)),[row])}),adminDb:async(table,o)=>{assert.equal(table,'amcinova_test_orders');assert.ok(o.query.includes('user_id=eq.'+user.id));row={...row,...o.body};return[row];},testPayments:{ready:true,create:async c=>{creates++;assert.equal(c.amount.value,'136.79');return payment();},get:async()=>payment()}});
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const url='http://127.0.0.1:'+server.address().port+'/api/customer/test-orders/'+id+'/payment',headers={Authorization:'Bearer '+ 'a'.repeat(30),'Content-Type':'application/json'};
+ try{assert.equal((await fetch(url)).status,401);for(let n=0;n<2;n++){const r=await fetch(url,{method:'POST',headers,body:JSON.stringify({amount:'0.01',user_id:'other'})});assert.equal(r.status,200);assert.equal((await r.json()).payment.amount.value,'136.79');}assert.equal(creates,1);assert.equal(row.estimate.testPaymentId,'tr_TESTroute');for(status of ['paid','failed','canceled','expired']){const data=await(await fetch(url,{headers})).json();assert.equal(data.payment.status,status);assert.equal(data.payment.productAccessGranted,false);}status='paid';assert.equal((await fetch(url,{method:'POST',headers})).status,200);assert.equal(row.status,'TEST');}
+ finally{await new Promise(r=>server.close(r));}
+});
+
