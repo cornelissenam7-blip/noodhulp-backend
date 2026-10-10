@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkConcreteClaims} from './agent-ai.mjs';
+import {checkConcreteClaims,preserveAdDetails} from './agent-ai.mjs';
 import {validatePromotion} from './promotion-plan.mjs';
 const result=text=>({title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:'Boswandeling',text,cta:'Boek een boswandeling'}]});
 test('duplicate exact and alternative booking calls rejected',()=>{
@@ -30,4 +30,13 @@ test('English promotion price conditions remain mandatory',()=>{
  const english={'promotion-offer':'Workshop €80 excluding materials.','promotion-facts':''};
  assert.throws(()=>validatePromotion(week('Workshop €80.'),['Facebook'],english),/prijsvoorwaarde/);
  assert.equal(validatePromotion(week('Workshop €80 excluding materials.'),['Facebook'],english).posts.length,4);
+});
+test('actual English duplicate-call draft retains a literal offer and supplied CTA link',()=>{
+ const input={task:'ads',fields:{'ad-offer':'Nature walk workshop €80 excluding materials. No reviews.','ad-link':'https://example.invalid/book'}};
+ const draft=result('Join our nature walk workshop for €80 plus materials. Book now!');
+ draft.ads[0].cta='Request a quote';
+ const corrected=preserveAdDetails(draft,input);
+ assert.equal(corrected.ads[0].text,'Nature walk workshop €80 excluding materials');
+ assert.match(corrected.ads[0].cta,/https:\/\/example.invalid\/book/);
+ assert.deepEqual(checkConcreteClaims(corrected,input),[]);
 });

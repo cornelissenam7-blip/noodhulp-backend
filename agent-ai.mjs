@@ -56,6 +56,18 @@ export function checkConcreteClaims(p,input){
  }
  return [...new Set(issues)];
 }
+export function preserveAdDetails(p,input){
+ if(input.task!=='ads')return p;
+ const offer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim().split(/[.!?]\s+/)[0];
+ const action=/^(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|sign up|secure your|join|enrol)\b/i;
+ const link=input.fields['ad-link'];
+ return {...p,ads:p.ads.map(ad=>{
+  let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
+  if(!text)text=offer&&offer.length<=90?offer:ad.text;
+  const cta=link&&!ad.cta.includes(link)?ad.cta+' — '+link:ad.cta;
+  return {...ad,text,cta};
+ })};
+}
 export function cleanAgentInput(body){
  if(!tasks.includes(body?.task)||!body.fields||typeof body.fields!=='object'||Array.isArray(body.fields))throw fail(400,'Ongeldige agentaanvraag.');
  const fields={};for(const [key,value] of Object.entries(body.fields)){if(!/^[a-z][a-z0-9-]{0,60}$/.test(key)||typeof value!=='string'||value.length>16000)throw fail(400,'Controleer de invoer.');fields[key]=value;}
@@ -89,7 +101,7 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
   const result=await response.json();if(result.status!=='completed')throw fail(502,'Het AI-antwoord is niet volledig. Probeer opnieuw.');
   try{p=JSON.parse((result.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(502,'AI gaf geen bruikbaar antwoord.');}
   const previousDraft=p;
-  p=validateAgentOutput(normalizeTaskOutput(p,input.task,input.fields.language));
+  p=validateAgentOutput(preserveAdDetails(normalizeTaskOutput(p,input.task,input.fields.language),input));
   feedback=checkConcreteClaims(p,input);
   if(!feedback.length)break;
   input.corrections=feedback;
