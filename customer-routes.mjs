@@ -6,6 +6,7 @@ import {proposeQuote} from './quote-ai.mjs';
 import {proposeDrawing} from './drawing-ai.mjs';
 import {randomUUID} from 'node:crypto';
 import {creditClient} from './ai-credits.mjs';
+import {commercialPolicy} from './commercial-readiness.mjs';
 import {testOrder} from './test-order-model.mjs';
 import {testerApplication} from './tester-application.mjs';
 import {validateSnapshot} from './quote-routes.mjs';
@@ -31,6 +32,7 @@ export function isPublicKey(key){
  try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
 }
 export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch,adminAccess=()=>false,adminDb,testPayments,planAdvisor=generateAgent}={}){
+ app.get('/api/customer/usage-policy',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,policy:commercialPolicy});});
  const credits=creditClient({env,fetchImpl});
  const base=(env.SUPABASE_URL||'').replace(/\/$/,''),key=env.SUPABASE_ANON_KEY||(base==='https://cmcnzcyfkqecisuujhey.supabase.co'?'sb_publishable__uS3FVuahHQPH1w5u0EnDA_w7D65zsq':'');
  const enabled=()=>env.CUSTOMER_ACCOUNTS_ENABLED!=='false'&&base.startsWith('https://')&&isPublicKey(key);

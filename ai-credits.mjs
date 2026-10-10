@@ -9,7 +9,7 @@ export function creditClient({env=process.env,fetchImpl=fetch}={}){
   return r.json();
  }
  const client={enabled,async reserve(user,product,id){
-  if(!enabled)return;
+  if(!enabled)throw Object.assign(Error('AI-generatie voor klantaccounts wacht op activering van gebruikslimieten. Je invoer en gewone berekeningen blijven beschikbaar.'),{status:503});
   const ok=await rpc('amcinova_credit_reserve',{p_user:user,p_product:product,p_request:id});
   if(ok!==true&&ok!==false)throw Object.assign(Error('AI-tegoed gaf een ongeldige reactie. Er is geen nieuwe AI-aanvraag gestart.'),{status:503});
   if(!ok)throw Object.assign(Error('Je AI-tegoed is op. Je bewaarde projecten blijven beschikbaar. Extra tegoed is binnenkort aan te vragen via Mijn Amcinova.'),{status:402});
