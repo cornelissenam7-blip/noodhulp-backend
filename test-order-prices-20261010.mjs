@@ -1,4 +1,3 @@
-import {previousTestOrder} from './test-order-prices-20261010.mjs';
 import {legacyTestOrder} from './test-order-legacy.mjs';
 
 function priceTotals({items,bundleDiscount,discount,terms,method,service=0,annualService=0}){
@@ -15,7 +14,7 @@ function priceTotals({items,bundleDiscount,discount,terms,method,service=0,annua
  return {annualNet,annualGross,rawOnce,rawMonthly,rate,onceNet,monthNet,directNet,spreadGross,directGross,net,gross,monthGross,part,last,first:annualGross+monthGross+(method==='once'?gross:part),year:annualGross+gross+12*monthGross};
 }
 const TestCart={totals:priceTotals,catalog:[
- {code:'offertetool',name:'Offertetool',once:199,monthly:0},
+ {code:'offertetool',name:'Offertetool',once:179,monthly:0},
  {code:'sitebuilder',name:'Sitebuilder zelfbouw/export',once:199,monthly:0},
  {code:'planner',name:'Woning- en keukenplanner',once:99,monthly:0},
  {code:'shophulp',name:'Shop-hulp',once:0,monthly:19},
@@ -25,10 +24,9 @@ const TestCart={totals:priceTotals,catalog:[
 ],parse(value){return [...new Set(String(value||'').split(','))].filter(code=>this.catalog.some(p=>p.code===code));}};
 TestCart.items=function(selected,sitePackage='self',campaignPlan='setup'){return selected.map(code=>{const p={...this.catalog.find(x=>x.code===code)};if(code==='sitebuilder')p.once={self:199,landing:399,extended:999}[sitePackage];if(code==='campaign')p.monthly=campaignPlan==='monthly'?99:0;return p;});};
 
-export function testOrder(input,user){
- if(input?.priceVersion==='proposal-20261010')return previousTestOrder(input,user);
- if(input?.priceVersion && !['test-20261007','proposal-20261010-quote'].includes(input.priceVersion))throw Error('Onbekende prijsversie.');
- if(input?.priceVersion!=='proposal-20261010-quote')return legacyTestOrder(input,user);
+export function previousTestOrder(input,user){
+ if(input?.priceVersion && !['test-20261007','proposal-20261010'].includes(input.priceVersion))throw Error('Onbekende prijsversie.');
+ if(input?.priceVersion!=='proposal-20261010')return legacyTestOrder(input,user);
  legacyTestOrder({...input,siteService:0},user);
  const sitePackage=input.sitePackage||'self',campaignPlan=input.campaignPlan||'setup';
  if(!['self','landing','extended'].includes(sitePackage)||!['setup','monthly','annual'].includes(campaignPlan)||![0,19,49].includes(input.siteService))throw Error('Ongeldige pakketkeuze.');
@@ -36,5 +34,5 @@ export function testOrder(input,user){
  const service=(selected.includes('offertetool')?input.quoteService:0)+(selected.includes('sitebuilder')?input.siteService:0);
  const annualService=selected.includes('campaign')&&campaignPlan==='annual'?990:0;
  const estimate=priceTotals({items:TestCart.items(selected,sitePackage,campaignPlan),bundleDiscount:10,discount:5,terms:input.terms,method:input.method,service,annualService});
- return {id:input.id,user_id:user.id,email:user.email,status:'TEST',selected,payment_method:input.method,terms:input.terms,estimate:{...estimate,quoteService:input.quoteService,siteService:input.siteService,sitePackage,campaignPlan,priceVersion:'proposal-20261010-quote',notice:'Richtprijs; niet bindend, geen echte betaling of producttoegang.'}};
+ return {id:input.id,user_id:user.id,email:user.email,status:'TEST',selected,payment_method:input.method,terms:input.terms,estimate:{...estimate,quoteService:input.quoteService,siteService:input.siteService,sitePackage,campaignPlan,priceVersion:'proposal-20261010',notice:'Richtprijs; niet bindend, geen echte betaling of producttoegang.'}};
 }
