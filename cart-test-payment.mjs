@@ -2,7 +2,7 @@ import {testOrder} from './test-order-model.mjs';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 export function cartPaymentAmount(order,user){
  if(order.user_id!==user.id||order.status!=='TEST')throw fail(404,'Testaanvraag niet gevonden.');
- const canonical=testOrder({id:order.id,selected:order.selected,method:order.payment_method,terms:order.terms,quoteService:order.estimate.quoteService,siteService:order.estimate.siteService},user);
+ const canonical=testOrder({id:order.id,selected:order.selected,method:order.payment_method,terms:order.terms,quoteService:order.estimate.quoteService,siteService:order.estimate.siteService,priceVersion:order.estimate.priceVersion,sitePackage:order.estimate.sitePackage,campaignPlan:order.estimate.campaignPlan},user);
  if(order.estimate.priceVersion!==canonical.estimate.priceVersion||order.estimate.first!==canonical.estimate.first)throw fail(409,'De opgeslagen proefprijs wijkt af. Maak een nieuwe testaanvraag.');
  if(canonical.estimate.first<1)throw fail(400,'Geen testbedrag om te betalen.');
  return {currency:'EUR',value:(canonical.estimate.first/100).toFixed(2)};
