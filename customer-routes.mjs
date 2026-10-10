@@ -8,6 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {creditClient} from './ai-credits.mjs';
 import {commercialPolicy} from './commercial-readiness.mjs';
 import {testOrder} from './test-order-model.mjs';
+import {activateTestAccess} from './test-access.mjs';
 import {testerApplication} from './tester-application.mjs';
 import {validateSnapshot} from './quote-routes.mjs';
 const products=new Set(customerCatalog.map(p=>p.code));
@@ -143,7 +144,9 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   const u=await identity(req),order=await ownedTestOrder(req,u);
   if(!order.estimate.testPaymentId)throw fault(404,'Nog geen testbetaling gestart.');
   const payment=await testPayments.get(order.estimate.testPaymentId);
-  res.json({ok:true,order,payment:verifyCartPayment(payment,order,u)});
+  const verified=verifyCartPayment(payment,order,u);
+  const testAccess=await activateTestAccess({env,order,user:u,payment,fetchImpl});
+  res.json({ok:true,order,payment:verified,testAccess});
  }));
  app.get('/api/admin/test-orders',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const orders=await adminDb('amcinova_test_orders',{method:'GET',query:'?select=*&order=created_at.desc,id.desc&limit=50&offset='+offset});for(const order of orders){order.testPayment=await adminTestPayment(order,testPayments);}res.json({ok:true,orders,nextOffset:orders.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Testaanvragen konden niet worden geladen.'});}});
  app.get('/api/customer/website-plan',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=website_plan');res.json({ok:true,plan:rows[0]?.website_plan||null});}));
