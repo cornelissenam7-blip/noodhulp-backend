@@ -32,19 +32,31 @@ export function validateSnapshot(input){
   if(brand.logo&&!/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(brand.logo)&&brand.logo!=='static/krnn-logo.png')throw fault(400,'Ongeldig logo.');
   if(brand.color&&!/^#[\da-f]{6}$/i.test(brand.color))throw fault(400,'Ongeldige huiskleur.');
   let totalCents;
+  let workLines;
+  if(input.workLines!==undefined){
+    if(!Array.isArray(input.workLines)||input.workLines.length>100)throw fault(400,'Ongeldige werkregels.');
+    workLines=input.workLines.map(l=>{
+      if(!l||!['uur','m2','m','stuk','post'].includes(l.unit))throw fault(400,'Ongeldige werkeenheid.');
+      const quantity=num(l.quantity),rate=num(l.rate);
+      if(quantity<=0||(l.unit==='stuk'&&!Number.isInteger(quantity))||Math.abs(rate*100-Math.round(rate*100))>1e-6)throw fault(400,'Controleer aantal en tarief van de werkregel.');
+      const name=text(l.name,180);if(!name.trim())throw fault(400,'Geef de werkregel een omschrijving.');
+      return{name,unit:l.unit,quantity,rate};
+    });
+  }
   if(input.kind==='Keukenrenovatie'){
     const rate=num(values.frontRate);const area=fronts.reduce((s,[h,w,q])=>s+Number(h)*Number(w)*Number(q)/1000000,0);
     totalCents=cents(area*rate)+items.reduce((s,[,,p,q])=>s+cents(Number(p)*Number(q)),0);
     if(![0,9,21].includes(num(values.kitchenVat)))throw fault(400,'Ongeldig btw-percentage.');
   }else{
-    if(!['hours','area'].includes(values.basis))throw fault(400,'Kies uren of vierkante meters.');
-    const labor=cents(num(values.basis==='area'?values.area:values.hours)*num(values.basis==='area'?values.areaRate:values.rate));
+    if(!['hours','area','lines'].includes(values.basis))throw fault(400,'Kies een berekeningswijze.');
+    if(values.basis==='lines'&&(!workLines||!workLines.length))throw fault(400,'Voeg minimaal één werkregel toe.');
+    const labor=values.basis==='lines'?workLines.reduce((s,l)=>s+cents(l.quantity*l.rate),0):cents(num(values.basis==='area'?values.area:values.hours)*num(values.basis==='area'?values.areaRate:values.rate));
     const material=materials.reduce((s,[,p])=>s+cents(Number(p)),0),markup=num(values.markup,1000),vat=num(values.vat);
     if(![0,9,21].includes(vat))throw fault(400,'Ongeldig btw-percentage.');
     const subtotal=labor+material+Math.round(material*markup/100);totalCents=subtotal+Math.round(subtotal*vat/100);
   }
   if(!Number.isSafeInteger(totalCents)||totalCents>100000000000)throw fault(400,'Offertebedrag is te groot.');
-  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand,ai:aiState(input.ai)},totalCents};
+  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand,ai:aiState(input.ai),...(workLines?{workLines}: {})},totalCents};
 }
 
 export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,now=()=>Date.now()}={}){
