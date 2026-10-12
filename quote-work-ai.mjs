@@ -14,7 +14,7 @@ export function validateWorkProposal(raw,input){
  const source=input.description;
  const lines=raw.lines.map(l=>{
   if(!l||typeof l.name!=='string'||!l.name.trim()||l.name.length>180||!units.includes(l.unit))throw fault(502,'Ongeldige werkregel.');
-  const out={name:l.name,unit:l.unit,quantity:l.quantity,rate:l.rate};
+  const out={name:l.name,unit:l.unit,quantity:l.quantity,rate:l.rate,quantitySource:l.quantitySource,rateSource:l.rateSource};
   for(const [field,label]of [['quantity','hoeveelheid'],['rate','prijs per eenheid exclusief btw']]){
    const value=l[field],evidence=l[field+'Source'];
    if(value===null){questions.push('Wat is de '+label+' voor '+l.name+'?');continue;}
