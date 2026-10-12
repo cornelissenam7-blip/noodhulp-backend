@@ -56,7 +56,14 @@ export function validateSnapshot(input){
     const subtotal=labor+material+Math.round(material*markup/100);totalCents=subtotal+Math.round(subtotal*vat/100);
   }
   if(!Number.isSafeInteger(totalCents)||totalCents>100000000000)throw fault(400,'Offertebedrag is te groot.');
-  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand,ai:aiState(input.ai),...(workLines?{workLines}: {})},totalCents};
+  let job3d;
+  if(input.job3d!=null){
+    const m=input.job3d;if(!m||!['room','wall','cabinet','walls'].includes(m.shape)||!/^#[\da-f]{6}$/i.test(m.colour))throw fault(400,'Ongeldig 3D-klusbeeld.');
+    job3d={shape:m.shape,colour:m.colour};for(const key of ['width','depth','height']){job3d[key]=m[key]===null?null:num(m[key],100);if(job3d[key]!==null&&job3d[key]<=0)throw fault(400,'Controleer de 3D-maten.');}
+    if(!Array.isArray(m.walls||[])||(m.walls||[]).length>30)throw fault(400,'Ongeldige wandmaten.');
+    job3d.walls=(m.walls||[]).map(w=>{const name=text(w.name,80),area=w.area===null?null:num(w.area,10000);if(!name.trim()||(area!==null&&area<=0))throw fault(400,'Controleer de wandoppervlakte.');return{name,area};});
+  }
+  return {snapshot:{kind:input.kind,values,materials,fronts,items,brand,ai:aiState(input.ai),...(workLines?{workLines}: {}),...(job3d?{job3d}: {})},totalCents};
 }
 
 export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,now=()=>Date.now()}={}){
@@ -73,7 +80,7 @@ export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   const handle=fn=>async(req,res)=>{res.set('Cache-Control','no-store');try{await fn(req,res)}catch(e){res.status(e.status||500).json({ok:false,error:e.status?e.message:'Offerteverwerking mislukt.'})}};
   const requireAdmin=req=>{if(!admin(req))throw fault(401,'Log in via het bestaande beheer.');};
   let aiWindow=0,aiCount=0,aiBusy=false;
-  app.post([prefix+'/:id/proposal',prefix+'/:id/drawing'],json({limit:'40kb'}),handle(async(req,res)=>{
+  app.post([prefix+'/:id/proposal',prefix+'/:id/drawing'],json({limit:'1200kb'}),handle(async(req,res)=>{
     grant(req,req.params.id);
     if(now()-aiWindow>=3600000){aiWindow=now();aiCount=0;}
     if(aiBusy||aiCount>=30)throw fault(429,'Even wachten: de AI is bezig of het uurlimiet is bereikt.');

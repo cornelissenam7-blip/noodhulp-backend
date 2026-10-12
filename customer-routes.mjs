@@ -125,7 +125,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
    res.json({ok:true,help});
   }finally{aiBusy=false;}
  }));
- app.post('/api/customer/ai/:mode',json({limit:'100kb'}),wrap(async(req,res)=>{
+ app.post('/api/customer/ai/:mode',json({limit:'1200kb'}),wrap(async(req,res)=>{
   const u=await identity(req),mode=req.params.mode;
   const {product,kind}=customerAIScope(mode,req.body);
   if(!['sitebuilder','offertetool'].includes(product)&&env.AMCINOVA_CUSTOMER_AGENTS_ENABLED!=='true')throw fault(503,'Deze klantkoppeling wordt nog afgerond.');
