@@ -25,7 +25,9 @@ export function validateWorkProposal(raw,input){
   if(!l||typeof l.name!=='string'||!l.name.trim()||l.name.length>180||!units.includes(l.unit))throw fault(502,'Ongeldige werkregel.');
   const out={name:l.name,unit:l.unit,quantity:l.quantity,rate:l.rate,quantitySource:l.quantitySource,rateSource:l.rateSource};
   for(const [field,label]of [['quantity','hoeveelheid'],['rate','prijs per eenheid exclusief btw']]){
-   const value=l[field],evidence=l[field+'Source'];
+   const value=l[field],citation=l[field+'Source'];
+   const evidence=typeof citation==='string'?citation.trim().replace(/^["“](.*)["”]$/s,'$1'):citation;
+   out[field+'Source']=evidence;
    if(value===null){questions.push(t('Wat is de '+label+' voor '+l.name+'?','What is the '+(field==='quantity'?'quantity':'unit price excluding VAT')+' for '+l.name+'?'));continue;}
    if(typeof value!=='number'||!Number.isFinite(value)||value<0||value>100000||(field==='quantity'&&value===0))throw fault(502,'Ongeldig aantal of tarief.');
    const unitPattern={uur:/\b(uur|uren|hours?|uurtarief)\b/i,m2:/(m[²2]|vierkante\s+meters?|square\s+metres?|square\s+meters?)/i,m:/\b(meter|meters|metres?|m)\b/i,stuk:/\b(stuk|stuks|items?|pieces?)\b/i,post:/\b(post|posten|fixed|pauschal|vast)\b/i}[l.unit];
