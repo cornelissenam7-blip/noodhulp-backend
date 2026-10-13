@@ -1,6 +1,7 @@
 // server.js (ESM) — drop-in vervanger
 
 import "dotenv/config";
+import {registerTrackingPublic} from "./tracking-links.mjs";
 import express from "express";
 import { registerQuoteRoutes } from "./quote-routes.mjs";
 import cors from "cors";
@@ -310,6 +311,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+registerTrackingPublic(app,{json:express.json,env:process.env,adminDb:supabaseRequest});
 const allowedOrigins = CORS_ORIGIN === "*"
   ? "*"
   : CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
