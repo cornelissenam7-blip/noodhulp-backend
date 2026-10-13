@@ -54,8 +54,8 @@ export function repairFactualCopy(p,input){
      const alternate=area+': '+rest.charAt(0).toLowerCase()+rest.slice(1);
      if(alternate!==first.text&&alternate.length<=90)ad.text=alternate;
     }
-    if(ad.text===first.text&&/\s+(?:voor|for)\s+[€$£]/i.test(ad.text)){
-     const match=ad.text.match(/^(.*?)\s+(?:voor|for)\s+([€$£].*?)\.?$/i);
+    if(ad.text===first.text){
+     const match=ad.text.match(/^(.*?)\s+(?:(?:voor|for)\s+)?([€$£].*?)\.?$/i);
      if(match){const alternate=match[2]+' — '+match[1].charAt(0).toLowerCase()+match[1].slice(1)+'.';if(alternate.length<=90)ad.text=alternate;}
     }
    }

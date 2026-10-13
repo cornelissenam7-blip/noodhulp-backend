@@ -25,6 +25,11 @@ test('supplied starting price and English confirmed claims remain intact',()=>{
  const p={...base,ads:[{headline:'From €65',text:'Professional gardening from €65.',cta:'Request a quote'}]};
  assert.deepEqual(repairFactualCopy(p,{task:'ads',fields:{language:'en','profile-offer':'Professional gardening from €65.'}}),p);
 });
+test('English hourly variants differ even without the word for',()=>{
+ const ad={headline:'Garden maintenance',text:'Garden maintenance €65 per hour excluding VAT and materials.',cta:'Request a quote'};
+ const fixed=repairFactualCopy({...base,ads:[ad,{...ad,headline:'Garden care'}]},{task:'ads',fields:{language:'en','profile-offer':ad.text,'agent-instructions':'Two variants.'}});
+ assert.notEqual(fixed.ads[0].text,fixed.ads[1].text);assert.match(fixed.ads[1].text,/€65 per hour excluding VAT and materials/);
+});
 test('campaign repairs repeated unsupported creative claims without losing concrete plan fields',async()=>{
  const plan={goal:'Voorstel: aanvragen meten.',audience:'Zelfstandigen Groningen.',channel:'Voorgestelde zoektermen: boekhouding Groningen. Uitsluitingen: vacatures, opleiding.',budget:'€300 per maand',creative:'Variant A: Professionele boekhouding in Groningen. Variant B: Betrouwbare boekhouding Groningen.',measurement:'Voorstel: UTM en aanvraaggebeurtenis, controleer tracking.',evaluation:'Pauzeer bij ontbrekende tracking of overschrijding budget.'};
  let calls=0;const fetchImpl=async()=>{calls++;return {ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({title:'Campagne',summary:'Concept',plan,questions:[]})}]}]})};};
