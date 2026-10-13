@@ -7,6 +7,7 @@ test('live painting regression removes second English contact sentence and rejec
  const input={task:'ads',fields:{'ad-offer':'Interior wall painting for homes.','profile-facts':'No professional experience is supplied.'}};
  const draft=result('Interior wall painting for homes. Get in touch!');
  assert.equal(preserveAdDetails(draft,input).ads[0].text,'Interior wall painting for homes.');
+ for(const invitation of ['Inquire now!','Enquire today!','Ask for details.','Discover more.','Send a message.','Get in touch!'])assert.equal(preserveAdDetails(result('Interior wall painting for homes. '+invitation),input).ads[0].text,'Interior wall painting for homes.');
  assert.ok(checkConcreteClaims(result('Expert interior wall painting.'),input).some(s=>/expert/i.test(s)));
  assert.ok(checkConcreteClaims(result('Professional interior wall painting.'),input).some(s=>s.includes('Professional')));
  assert.deepEqual(checkConcreteClaims(result('Expert interior wall painting.'),{task:'ads',fields:{'ad-offer':'Expert interior wall painting.'}}),[]);
