@@ -17,11 +17,12 @@ export function verifyTestTopup(payment,row,user){
  if(Number(payment.amountRefunded?.value||0)>0||Number(payment.amountChargedBack?.value||0)>0)throw fault(409,'Teruggedraaide testbetaling geeft geen extra tegoed.');
  return {id:payment.id,status:payment.status,mode:'test',units:row.units,amount:payment.amount};
 }
-export async function startTestTopup({row,user,payments,save}){
+export async function startTestTopup({row,user,payments,save,language='nl'}){
  if(row.payment_id){const payment=await payments.get(row.payment_id);verifyTestTopup(payment,row,user);return payment;}
  const canonical=testBillingRequest({id:row.id,product:row.product_code,units:row.units},user);
  if(row.user_id!==user.id||row.policy!==canonical.policy||row.amount_cents!==canonical.amount_cents)throw fault(409,'Testbedrag wijkt af.');
- const payment=await payments.create({amount:{currency:'EUR',value:(canonical.amount_cents/100).toFixed(2)},description:'TEST Amcinova AI-tegoed '+row.id,idempotencyKey:'amcinova-topup-'+row.id,redirectUrl:'https://agents.amcinova.com/account.html?testtopup='+row.id,metadata:{purpose:'credit-topup-test',requestId:row.id,userId:user.id,product:row.product_code,units:row.units}});
+ const lang=language==='en'?'en':'nl';
+ const payment=await payments.create({amount:{currency:'EUR',value:(canonical.amount_cents/100).toFixed(2)},locale:lang==='en'?'en_GB':'nl_NL',description:'TEST Amcinova '+(lang==='en'?'AI credits ':'AI-tegoed ')+row.id,idempotencyKey:'amcinova-topup-'+row.id,redirectUrl:'https://agents.amcinova.com/account.html?testtopup='+row.id+'&lang='+lang,metadata:{purpose:'credit-topup-test',requestId:row.id,userId:user.id,product:row.product_code,units:row.units}});
  verifyTestTopup(payment,row,user);await save(payment.id);return payment;
 }
 export function testBillingAllowed(env,user){return env.AMCINOVA_TEST_BILLING_ENABLED==='true'&&String(env.AMCINOVA_TEST_ACCESS_USERS||'').split(',').map(s=>s.trim()).includes(user.id);}

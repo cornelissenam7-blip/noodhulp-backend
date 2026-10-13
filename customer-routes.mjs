@@ -81,7 +81,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
    const created=await adminDb('rpc/amcinova_create_test_topup',{method:'POST',body:{p_user:u.id,p_id:row.id,p_product:row.product_code,p_units:row.units}});rows=[created];
   }
   const saved=rows[0];if(!saved||saved.product_code!==row.product_code||saved.units!==row.units||saved.amount_cents!==row.amount_cents||saved.user_id!==u.id)throw fault(409,'Aanvraagnummer hoort bij een andere keuze.');
-  const payment=await startTestTopup({row:saved,user:u,payments:testPayments,save:async payment_id=>{
+  const payment=await startTestTopup({row:saved,user:u,payments:testPayments,language:req.body?.language,save:async payment_id=>{
    const updated=await adminDb('amcinova_test_credit_payments',{method:'PATCH',query:'?user_id=eq.'+u.id+'&id=eq.'+row.id+'&payment_id=is.null',body:{payment_id},prefer:'return=representation'});
    if(!updated?.length){const latest=await db(u,'amcinova_test_credit_payments','?user_id=eq.'+u.id+'&id=eq.'+row.id);if(latest[0]?.payment_id!==payment_id)throw fault(409,'Betaalkoppeling niet bevestigd.');}
   }});
