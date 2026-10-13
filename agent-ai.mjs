@@ -50,8 +50,11 @@ export function checkConcreteClaims(p,input){
  if(input.task!=='campaign'&&money(text).some(n=>!supplied.includes(n)))issues.push('Verwijder bedragen die niet letterlijk zijn opgegeven.');
  for(const ad of p.ads)if(ad.headline.length>30||ad.text.length>90)issues.push('Maak advertentiekoppen maximaal 30 tekens en teksten maximaal 90 tekens.');
  for(const ad of p.ads){
+  const confirmed=source.split(/[.!?\n]+/).filter(s=>! /\b(?:no|not|unknown|unconfirmed|geen|niet|onbekend)\b/i.test(s)).join(' ');
+  const qualifiers=/\b(?:expert|experts|professional|experienced|certified|award-winning|best-rated|deskundig|professioneel|ervaren|gecertificeerd|bekroond)\b/gi;
+  for(const claim of [ad.headline,ad.text,ad.cta].join(' ').match(qualifiers)||[])if(!new RegExp('\\b'+claim+'\\b','i').test(confirmed))issues.push('Verwijder onbevestigde deskundigheids- of kwaliteitsclaim: '+claim+'. Herformuleer uitsluitend het opgegeven aanbod.');
   if(ad.cta.trim()&&ad.text.toLowerCase().includes(ad.cta.trim().toLowerCase()))issues.push('Zet de oproep tot actie uitsluitend in cta, niet ook in text.');
-  if(/(?:^|[.!?]\s+)(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|sign up|secure your|join|enrol)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
+  if(/(?:^|[.!?]\s+)(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
   const link=input.fields['ad-link'];
   if(link && ![ad.text,ad.cta].some(value=>value.includes(link)))issues.push('Behoud de aangeleverde contactlink in cta.');
  }
@@ -60,7 +63,7 @@ export function checkConcreteClaims(p,input){
 export function preserveAdDetails(p,input){
  if(input.task!=='ads')return p;
  const offer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim().split(/[.!?]\s+/)[0];
- const action=/^(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|sign up|secure your|join|enrol)\b/i;
+ const action=/^(?:boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i;
  const link=input.fields['ad-link'];
  return {...p,ads:p.ads.map(ad=>{
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();

@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import {checkConcreteClaims,preserveAdDetails} from './agent-ai.mjs';
 import {validatePromotion} from './promotion-plan.mjs';
 const result=text=>({title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:'Boswandeling',text,cta:'Boek een boswandeling'}]});
+test('live painting regression removes second English contact sentence and rejects invented expert claims',()=>{
+ const input={task:'ads',fields:{'ad-offer':'Interior wall painting for homes.','profile-facts':'No professional experience is supplied.'}};
+ const draft=result('Interior wall painting for homes. Get in touch!');
+ assert.equal(preserveAdDetails(draft,input).ads[0].text,'Interior wall painting for homes.');
+ assert.ok(checkConcreteClaims(result('Expert interior wall painting.'),input).some(s=>/expert/i.test(s)));
+ assert.ok(checkConcreteClaims(result('Professional interior wall painting.'),input).some(s=>s.includes('Professional')));
+ assert.deepEqual(checkConcreteClaims(result('Expert interior wall painting.'),{task:'ads',fields:{'ad-offer':'Expert interior wall painting.'}}),[]);
+});
 test('duplicate exact and alternative booking calls rejected',()=>{
  for(const text of ['In Friesland. Boek een boswandeling.','In Friesland. Boek nu.'])assert.ok(checkConcreteClaims(result(text),{task:'ads',fields:{}}).length);
  assert.deepEqual(checkConcreteClaims(result('Begeleide boswandeling in Friesland.'),{task:'ads',fields:{}}),[]);
