@@ -43,3 +43,8 @@ test('generic mention of search terms is not a concrete campaign list',()=>{
  const issues=checkConcreteClaims(p,{task:'campaign',fields:{'campaign-goal':'Geef zoektermen, uitsluitingen en stopcriteria.'}});
  assert.ok(issues.some(s=>/Zoektermen:/.test(s)));assert.ok(issues.some(s=>/Uitsluitingen:/.test(s)));
 });
+test('salon promotion drops invented experts and keeps price plus Instagram contact',()=>{
+ const fixed=preservePromotionDetails({posts:[{title:'Knippen',text:'Onze ervaren experts knippen voor €28. Maak een afspraak.',imageBrief:'Eigen foto',channel:'Instagram'}]},{language:'nl','promotion-offer':'Dames en heren knippen voor €28 inclusief btw.','promotion-facts':'Afspraak via https://example.com/afspraak.'});
+ assert.doesNotMatch(fixed.posts[0].text,/ervaren|experts/);assert.match(fixed.posts[0].text,/https:\/\/example.com\/afspraak/);
+ assert.match(fixed.posts[0].imageBrief,/nog niet gekozen/);
+});

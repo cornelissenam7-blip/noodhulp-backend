@@ -17,7 +17,7 @@ export function repairFactualCopy(p,input){
   if(fixedPrice)value=value.replace(/\b(?:vanaf|from|starting (?:at|from))\s*(?=[€$£]|\d)/gi,'');
   return value.replace(/\s{2,}/g,' ').replace(/\s+([,.!?:;])/g,'$1').trim();
  };
- const next={...p,title:clean(p.title),summary:clean(p.summary),headline:clean(p.headline),intro:clean(p.intro),ads:p.ads.map(a=>({...a,headline:clean(a.headline),text:clean(a.text)})),sections:p.sections.map(s=>({...s}))};
+ const next={...p,title:clean(p.title),summary:clean(p.summary),headline:clean(p.headline),intro:clean(p.intro),ads:p.ads.map(a=>({...a,headline:clean(a.headline),text:clean(a.text)})),sections:p.sections.map(s=>({...s,text:fields.language==='nl'?s.text.replace(/\bzelfändige\b/gi,'zelfstandige'):s.text}))};
  if(input.task==='site'){
   // Additional site paragraphs containing an unsupported claim are discarded.
   next.sections=next.sections.filter(s=>![...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts)));

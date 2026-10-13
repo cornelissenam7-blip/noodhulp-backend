@@ -1,4 +1,5 @@
 import {agencyExpertise} from './agency-expertise.mjs';
+import {repairFactualCopy} from './agent-factual-repair.mjs';
 export const promotionChannels=['Facebook','Instagram','YouTube','TikTok','Pinterest','Snapchat','LinkedIn','X'];
 const fail=(s,m)=>Object.assign(Error(m),{status:s});
 const string={type:'string'};
@@ -10,12 +11,14 @@ export function preservePromotionDetails(raw,fields={}){
  if(!Array.isArray(raw?.posts))return raw;
  return {...raw,posts:raw.posts.map(p=>{
   if(typeof p?.text!=='string')return p;
-  let text=p.text;
+  const grounded=repairFactualCopy({title:p.title||'',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:p.title||'',text:p.text,cta:''}]},{task:'ads',fields:{language:fields.language,'profile-offer':fields['promotion-offer']||'','profile-facts':fields['promotion-facts']||''}});
+  let text=grounded.ads[0].text||fields['promotion-offer']||p.text;
   if(/€|\bEUR\b|\beuro\b/i.test(text))for(const condition of conditions)if(!text.toLowerCase().includes(condition.toLowerCase()))text+='\n'+(fields.language==='en'?'Price condition: ':'Prijsvoorwaarde: ')+condition+'.';
   if(p.channel==='Facebook')for(const link of links)if(!text.includes(link))text+='\n'+link;
+  if(p.channel==='Instagram')for(const link of links)if(!text.includes(link))text+='\n'+(fields.language==='en'?'Appointments via the website: ':'Afspraak via de website: ')+link;
   const label=fields.language==='en'?'Image proposal — not yet selected or created: ':'Beeldvoorstel — nog niet gekozen of gemaakt: ';
   const imageBrief=typeof p.imageBrief==='string'&&!p.imageBrief.startsWith(label)?label+p.imageBrief.slice(0,999-label.length):p.imageBrief;
-  return {...p,text,imageBrief};
+  return {...p,title:grounded.ads[0].headline||p.title,text,imageBrief};
  })};
 }
 export function validatePromotion(raw,channels=['Facebook','Instagram'],fields={}){
