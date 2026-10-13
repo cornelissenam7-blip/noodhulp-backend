@@ -68,7 +68,7 @@ export function checkConcreteClaims(p,input){
  for(const ad of p.ads)if(ad.headline.length>30||ad.text.length>90)issues.push('Maak advertentiekoppen maximaal 30 tekens en teksten maximaal 90 tekens.');
  for(const ad of p.ads){
   if(ad.cta.trim()&&ad.text.toLowerCase().includes(ad.cta.trim().toLowerCase()))issues.push('Zet de oproep tot actie uitsluitend in cta, niet ook in text.');
-  if(/(?:^|[.!?]\s+)(?:offerte aanvragen|boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|enhance|improve|refresh|revitalize|upgrade|transform|give|enjoy|experience|get|inquire|enquire|ask|schedule|visit|find out|discover|explore|start|connect|send|message|learn|talk|speak|informeer|ontdek|bekijk|bezoek|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
+  if(/(?:^|[.!?]\s+)(?:offerte aanvragen|boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|enhance|improve|maintain|refresh|revitalize|upgrade|transform|give|enjoy|experience|get|inquire|enquire|ask|schedule|visit|find out|discover|explore|start|connect|send|message|learn|talk|speak|informeer|ontdek|bekijk|bezoek|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i.test(ad.text)&&ad.cta.trim())issues.push('Verwijder de extra oproep tot actie uit text; behoud één oproep in cta.');
   const link=input.fields['ad-link'];
   if(link && ![ad.text,ad.cta].some(value=>value.includes(link)))issues.push('Behoud de aangeleverde contactlink in cta.');
  }
@@ -77,11 +77,18 @@ export function checkConcreteClaims(p,input){
 export function preserveAdDetails(p,input){
  if(input.task!=='ads')return p;
  const offer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim().split(/[.!?]\s+/)[0];
- const action=/^(?:offerte aanvragen|boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|enhance|improve|refresh|revitalize|upgrade|transform|give|enjoy|experience|get|inquire|enquire|ask|schedule|visit|find out|discover|explore|start|connect|send|message|learn|talk|speak|informeer|ontdek|bekijk|bezoek|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i;
+ const action=/^(?:offerte aanvragen|boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|enhance|improve|maintain|refresh|revitalize|upgrade|transform|give|enjoy|experience|get|inquire|enquire|ask|schedule|visit|find out|discover|explore|start|connect|send|message|learn|talk|speak|informeer|ontdek|bekijk|bezoek|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i;
  const link=input.fields['ad-link'];
+ const rawOffer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim();
+ const conditions=[...rawOffer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.|excluding|including)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0]);
+ const canonical=s=>s.toLowerCase().replace(/\b(?:exclusief|excl\.?|excluding)\b\.?/g,'excluding').replace(/\b(?:inclusief|incl\.?|including)\b\.?/g,'including').replace(/\bbtw\b/g,'vat').replace(/\b(?:materiaal|materialen)\b/g,'materials').replace(/\ben\b/g,'and').replace(/[.,;:]/g,' ').replace(/\s+/g,' ').trim();
  return {...p,ads:p.ads.map(ad=>{
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
   if(!text)text=offer&&offer.length<=90?offer:ad.text;
+  if(/€|\bEUR\b|\beuro\b/i.test(text)&&conditions.some(c=>!canonical(text).includes(canonical(c)))){
+   if(rawOffer.length<=90)text=rawOffer;
+   else throw fail(502,'De prijsvoorwaarden passen niet in deze korte advertentie. Verkort het aanbod met behoud van tarief, eenheid en voorwaarden.');
+  }
   const suppliedCta=ad.cta.trim();
   const usableCta=action.test(suppliedCta)?suppliedCta:(input.fields.language==='en'?'Request a quote':'Vraag een offerte aan');
   const cta=link&&!usableCta.includes(link)?usableCta+' — '+link:usableCta;
@@ -121,7 +128,7 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
   const result=await response.json();if(result.status!=='completed')throw fail(502,'Het AI-antwoord is niet volledig. Probeer opnieuw.');
   try{p=JSON.parse((result.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(502,'AI gaf geen bruikbaar antwoord.');}
   const previousDraft=p;
-  p=validateAgentOutput(preserveAdDetails(repairFactualCopy(normalizeTaskOutput(p,input.task,input.fields.language),input),input));
+  p=validateAgentOutput(preserveAdDetails(repairFactualCopy(preserveAdDetails(normalizeTaskOutput(p,input.task,input.fields.language),input),input),input));
   feedback=checkConcreteClaims(p,input);
   if(!feedback.length)break;
   input.corrections=feedback;

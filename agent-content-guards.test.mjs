@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import {checkConcreteClaims,preserveAdDetails} from './agent-ai.mjs';
 import {validatePromotion} from './promotion-plan.mjs';
 const result=text=>({title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:'Boswandeling',text,cta:'Boek een boswandeling'}]});
+test('actual English garden ad cannot omit excluded materials or add a second imperative',()=>{
+ const offer='Garden maintenance €65 per hour excluding VAT and materials.';
+ const input={task:'ads',fields:{language:'en','ad-offer':offer,'ad-link':'https://example.com/quote'}};
+ const p=result('Maintain your garden for €65/hour + VAT.');p.ads[0].cta='Request a quote';
+ const fixed=preserveAdDetails(p,input);assert.equal(fixed.ads[0].text,offer);assert.match(fixed.ads[0].cta,/https:\/\/example.com\/quote/);
+ const short=result('Tuinonderhoud €65 per uur excl. btw en materialen.');
+ assert.equal(preserveAdDetails(short,{task:'ads',fields:{'ad-offer':'Tuinonderhoud €65 per uur exclusief btw en materialen.'}}).ads[0].text,short.ads[0].text);
+});
 test('live bicycle page rejects invented expertise and booking features',()=>{
  const p={...result(''),ads:[],intro:'Professionele onderhoudsbeurt voor €45 inclusief btw. Onze experts helpen. Kies een datum en tijdstip.'};
  const input={task:'site',fields:{'builder-offer':'Onderhoudsbeurt €45 inclusief btw, exclusief onderdelen.'}};
