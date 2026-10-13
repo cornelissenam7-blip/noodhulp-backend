@@ -1,10 +1,26 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {generatePromotion,validatePromotion} from './promotion-plan.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {generatePromotion,validatePromotion,preservePromotionDetails,promotionCount} from './promotion-plan.mjs';
 const post={channel:'Facebook',day:1,title:'Fronten',text:'Bekijk de mogelijkheden voor nieuwe fronten.',imageBrief:'Eigen foto van fronten.'};
 test('Eight channels and selected channel restriction',()=>{const channels=['Facebook','Instagram','YouTube','TikTok','Pinterest','Snapchat','LinkedIn','X'];const posts=channels.map(channel=>({...post,channel}));assert.equal(validatePromotion({summary:'TEST',posts},channels).posts.length,8);assert.throws(()=>validatePromotion({summary:'TEST',posts:posts.map(()=>post)},channels));assert.throws(()=>validatePromotion({summary:'TEST',posts:[post,post,post,post]},['TikTok']));});
 test('Selected video channel passed to model and verified',async()=>{await generatePromotion({'promotion-name':'TEST','promotion-offer':'Keukens','promotion-channels':'TikTok'},{env:{OPENAI_API_KEY:'test'},fetchImpl:async(_,o)=>{const b=JSON.parse(o.body);assert.match(b.instructions,/uitsluitend TikTok/);assert.match(b.instructions,/videoscript/);return{ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({summary:'Concept',posts:Array.from({length:4},()=>({...post,channel:'TikTok'}))})}]}]})};}});});
-test('only promotion facts reach model; generated data cannot grant approval',async()=>{const result=await generatePromotion({'promotion-name':'Bedrijf','promotion-offer':'Fronten','admin-password':'SECRET'},{env:{OPENAI_API_KEY:'test'},fetchImpl:async(_,o)=>{const b=JSON.parse(o.body);assert(!b.input.includes('SECRET'));assert.equal(b.store,false);return{ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({summary:'Concept',posts:[{...post,approved:true},post,post,post]})}]}]})};}});assert.equal(result.kind,'promotion-plan');assert.equal(result.posts[0].approved,undefined);});
+test('only promotion facts reach model; generated data cannot grant approval',async()=>{const result=await generatePromotion({'promotion-name':'Bedrijf','promotion-offer':'Fronten','promotion-channels':'Facebook','admin-password':'SECRET'},{env:{OPENAI_API_KEY:'test'},fetchImpl:async(_,o)=>{const b=JSON.parse(o.body);assert(!b.input.includes('SECRET'));assert.equal(b.store,false);return{ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({summary:'Concept',posts:[{...post,approved:true},post,post,post]})}]}]})};}});assert.equal(result.kind,'promotion-plan');assert.equal(result.posts[0].approved,undefined);});
 test('rejects invalid channel or incomplete week',()=>{assert.throws(()=>validatePromotion({summary:'',posts:[]}));assert.throws(()=>validatePromotion({summary:'',posts:[post,{...post,channel:'Email'}]}));});
 test('actual generation retains supplied English price condition and Facebook link when model omits them',async()=>{
  const result=await generatePromotion({'promotion-name':'TEST','promotion-offer':'Workshop €80 excluding materials.','promotion-facts':'https://example.invalid/book','promotion-channels':'Facebook',language:'en'},{env:{OPENAI_API_KEY:'test'},fetchImpl:async()=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({summary:'TEST',posts:Array.from({length:4},()=>({...post,text:'Workshop €80.'}))})}]}]})})});
  for(const p of result.posts){assert.match(p.text,/excluding materials/);assert.match(p.text,/https:\/\/example.invalid\/book/);}
+});
+test('explicit post count and channel coverage are honored',()=>{
+ const fields={'promotion-goal':'Create two organic posts for Facebook and Instagram.',language:'en'};
+ assert.equal(promotionCount(fields),2);
+ assert.equal(validatePromotion({summary:'TEST',posts:[post,{...post,channel:'Instagram'}]},undefined,fields).posts.length,2);
+ assert.throws(()=>validatePromotion({summary:'TEST',posts:[post,post]},undefined,fields));
+ assert.throws(()=>promotionCount({'promotion-goal':'Maak een bericht'},['Facebook','Instagram']));
+});
+test('unsafe unfinished post sentences are omitted; GBP conditions remain',()=>{
+ const fields={'promotion-name':'TEST','promotion-offer':'Pottery workshop £30 per participant including materials.',language:'en'};
+ const raw=preservePromotionDetails({summary:'TEST',posts:[{...post,text:'Workshop £30. Limited spots available! Try [specific style].'}]},fields);
+ assert.match(raw.posts[0].text,/including materials/);
+ assert.doesNotMatch(raw.posts[0].text,/Limited spots|\[/);
+ const nl=preservePromotionDetails({posts:[{...post,text:'Je bent verzekerd van een stralende look. [specifieke haarstijl].'}]},{'promotion-offer':'Knippen €28 inclusief btw.'});
+ assert.doesNotMatch(nl.posts[0].text,/verzekerd|\[/);
+ assert.match(nl.posts[0].text,/€28/);
 });
