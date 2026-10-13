@@ -13,6 +13,7 @@ export function preservePromotionDetails(raw,fields={}){
   if(typeof p?.text!=='string')return p;
   const grounded=repairFactualCopy({title:p.title||'',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:p.title||'',text:p.text,cta:''}]},{task:'ads',fields:{language:fields.language,'profile-offer':fields['promotion-offer']||'','profile-facts':fields['promotion-facts']||''}});
   let text=grounded.ads[0].text||fields['promotion-offer']||p.text;
+  if(/€|\bEUR\b|\beuro\b/i.test(p.text)&&!/€|\bEUR\b|\beuro\b/i.test(text)&&fields['promotion-offer'])text=fields['promotion-offer']+'\n'+text;
   if(/€|\bEUR\b|\beuro\b/i.test(text))for(const condition of conditions)if(!text.toLowerCase().includes(condition.toLowerCase()))text+='\n'+(fields.language==='en'?'Price condition: ':'Prijsvoorwaarde: ')+condition+'.';
   if(p.channel==='Facebook')for(const link of links)if(!text.includes(link))text+='\n'+link;
   if(p.channel==='Instagram')for(const link of links)if(!text.includes(link))text+='\n'+(fields.language==='en'?'Appointments via the website: ':'Afspraak via de website: ')+link;

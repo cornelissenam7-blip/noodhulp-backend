@@ -1,6 +1,6 @@
 // Repair concrete unsupported marketing embellishments using supplied facts.
 // No extra model call, fabricated business facts or generic successful-plan fallback.
-const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety)\b/gi;
+const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|expertise|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety|geweldig|geweldige|top|kwaliteit|quality|zonder zorgen|met zorg en aandacht|effici[eë]nt|efficient)\b/gi;
 const affirmative=s=>s.split(/[.!?\n]+/).filter(part=>! /\b(?:no|not|unknown|unconfirmed|geen|niet|onbekend)\b/i.test(part)).join(' ');
 const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function repairFactualCopy(p,input){
