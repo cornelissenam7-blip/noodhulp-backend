@@ -155,7 +155,7 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
  if(input.task==='campaign'&&input.fields['campaign-budget']?.trim())p.sections.find(s=>s.heading==='Budget').text=input.fields['campaign-budget'].trim();
  if(input.task==='advice'&&input.fields['support-mode']==='webshop'){
   const en=input.fields.language==='en';
-  p.sections=p.sections.map(s=>/^(?:Vastgesteld|Established|Confirmed|Findings)$/i.test(s.heading.trim())?{...s,heading:en?'Supplied information — not independently checked':'Aangeleverde informatie — niet zelfstandig gecontroleerd'}:s);
+  p.sections=p.sections.map(s=>/^(?:Vastgesteld(?:e feiten)?|Established(?: Facts)?|Confirmed(?: Facts)?|Findings)$/i.test(s.heading.trim())?{...s,heading:en?'Supplied information — not independently checked':'Aangeleverde informatie — niet zelfstandig gecontroleerd'}:s);
   if(/SMTP/i.test(input.fields['agent-instructions']||''))p.sections.push({heading:en?'Email verification':'E-mailcontrole',text:en?'SMTP acceptance does not prove delivery to the recipient’s inbox. Check the provider log and recipient or spam folder separately.':'SMTP-acceptatie bewijst geen bezorging in de inbox. Controleer afzonderlijk het providerlog en ontvangst bij de klant, inclusief spam.'});
  }
  return p;
