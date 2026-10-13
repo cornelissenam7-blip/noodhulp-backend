@@ -5,6 +5,10 @@ import {generateAgent,checkConcreteClaims} from './agent-ai.mjs';
 import {preserveAdDetails,normalizeTaskOutput} from './agent-ai.mjs';
 import {preservePromotionDetails} from './promotion-plan.mjs';
 const base={title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],questions:[],ads:[]};
+test('an excluded accountant keyword does not expand the bookkeeping service',()=>{
+ const p={...base,sections:[{heading:'Kanaalkeuze',text:'Zoektermen: boekhouding Groningen. Uitsluitingen: accountant, accountancy, vacature.'}]};
+ assert.ok(!checkConcreteClaims(p,{task:'campaign',fields:{'profile-offer':'Boekhouding voor zelfstandigen.'}}).some(s=>/zoekrichting/.test(s)));
+});
 test('live campaign must include requested test enquiry and no invented no-lead stop rule',()=>{
  const p={...base,sections:[{heading:'Meten',text:'Controleer de werking van tracking.'},{heading:'Evalueren en bijsturen',text:'Stop bij gebrek aan aanvragen.'}]};
  const issues=checkConcreteClaims(p,{task:'campaign',fields:{'agent-instructions':'Meten met testaanvraag; stopcriteria rond budget en tracking.'}});
