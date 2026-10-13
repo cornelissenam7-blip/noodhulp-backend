@@ -80,7 +80,9 @@ export function preserveAdDetails(p,input){
  return {...p,ads:p.ads.map(ad=>{
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
   if(!text)text=offer&&offer.length<=90?offer:ad.text;
-  const cta=link&&!ad.cta.includes(link)?ad.cta+' — '+link:ad.cta;
+  const suppliedCta=ad.cta.trim();
+  const usableCta=action.test(suppliedCta)?suppliedCta:(input.fields.language==='en'?'Request a quote':'Vraag een offerte aan');
+  const cta=link&&!usableCta.includes(link)?usableCta+' — '+link:usableCta;
   return {...ad,text,cta};
  })};
 }

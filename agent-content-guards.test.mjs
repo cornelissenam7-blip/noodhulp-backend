@@ -18,6 +18,13 @@ test('gardener noun-form CTA stays only in CTA field',()=>{
  const p=result('Tuinonderhoud €65 per uur. Offerte aanvragen!');
  assert.equal(preserveAdDetails(p,input).ads[0].text,'Tuinonderhoud €65 per uur.');
 });
+test('incomplete live gardener CTAs receive neutral action and preserve destination',()=>{
+ for(const cta of ['', 'via onze website!', '— https://example.com/offerte']){
+  const p=result('Tuinonderhoud €65 per uur.');p.ads[0].cta=cta;
+  const fixed=preserveAdDetails(p,{task:'ads',fields:{'ad-link':'https://example.com/offerte'}});
+  assert.equal(fixed.ads[0].cta,'Vraag een offerte aan — https://example.com/offerte');
+ }
+});
 test('live bookkeeper campaign cannot invent free or professional service in creative sections',()=>{
  const p={...result(''),ads:[],sections:[{heading:'Advertentievoorstel en test',text:'Professionele boekhouding. Gratis kennismaking.'}]};
  const input={task:'campaign',fields:{'profile-offer':'Boekhouding voor zzp’ers.','profile-facts':'Geen klantreviews, zoekvolumes, conversiecijfers of garanties bekend.'}};
