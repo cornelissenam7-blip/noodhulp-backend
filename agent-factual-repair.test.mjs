@@ -5,6 +5,12 @@ import {generateAgent,checkConcreteClaims} from './agent-ai.mjs';
 import {preserveAdDetails,normalizeTaskOutput} from './agent-ai.mjs';
 import {preservePromotionDetails} from './promotion-plan.mjs';
 const base={title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],questions:[],ads:[]};
+test('live campaign must include requested test enquiry and no invented no-lead stop rule',()=>{
+ const p={...base,sections:[{heading:'Meten',text:'Controleer de werking van tracking.'},{heading:'Evalueren en bijsturen',text:'Stop bij gebrek aan aanvragen.'}]};
+ const issues=checkConcreteClaims(p,{task:'campaign',fields:{'agent-instructions':'Meten met testaanvraag; stopcriteria rond budget en tracking.'}});
+ assert.ok(issues.some(s=>/testaanvraag expliciet/.test(s)));
+ assert.ok(issues.some(s=>/ontbrekende aanvragen/.test(s)));
+});
 test('live English campaign uses English labels and actual line breaks',()=>{
  const p={title:'Test',summary:'Draft',questions:[],plan:Object.fromEntries(['goal','audience','channel','budget','creative','measurement','evaluation'].map(k=>[k,k]))};
  p.plan.channel='Google Ads.\\nZoektermen: dog grooming Bristol.\\nUitsluitingen: grooming supplies.';
