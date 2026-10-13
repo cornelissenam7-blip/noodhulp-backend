@@ -5,6 +5,15 @@ import {generateAgent,checkConcreteClaims} from './agent-ai.mjs';
 import {preserveAdDetails,normalizeTaskOutput} from './agent-ai.mjs';
 import {preservePromotionDetails} from './promotion-plan.mjs';
 const base={title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],questions:[],ads:[]};
+test('live campaign measurement cannot claim an unconfigured tracking installation',()=>{
+ for(const language of ['nl','en']){
+ const p={...base,sections:[{heading:language==='nl'?'Meten':'Measurement',text:language==='nl'?'Aanvraagmeting ingesteld via UTM-parameters.':'Enquiry tracking configured using UTM parameters.'}]};
+ const repaired=repairFactualCopy(p,{task:'campaign',fields:{language,'profile-facts':'Aanvragen https://example.com/form.'}});
+ assert.match(repaired.sections[0].text,language==='nl'?/nog niet ingericht/:/not yet configured/);
+ assert.match(repaired.sections[0].text,language==='nl'?/testaanvraag/:/test enquiry/);
+ assert.match(repaired.sections[0].text,language==='nl'?/aparte gebeurtenis/:/separate event/);
+ }
+});
 test('an excluded accountant keyword does not expand the bookkeeping service',()=>{
  const p={...base,sections:[{heading:'Kanaalkeuze',text:'Zoektermen: boekhouding Groningen. Uitsluitingen: accountant, accountancy, vacature.'}]};
  assert.ok(!checkConcreteClaims(p,{task:'campaign',fields:{'profile-offer':'Boekhouding voor zelfstandigen.'}}).some(s=>/zoekrichting/.test(s)));

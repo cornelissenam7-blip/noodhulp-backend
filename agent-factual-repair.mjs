@@ -30,11 +30,12 @@ export function repairFactualCopy(p,input){
   if(!next.summary)next.summary=fields.language==='en'?'Draft based on your supplied offer.':'Concept op basis van je opgegeven aanbod.';
  }
  if(input.task==='campaign')next.sections=next.sections.map(s=>{
+  if(/Meten|Measurement/i.test(s.heading)&&/\b(?:ingesteld|ingericht|configured|enabled|tracking is functioning)\b/i.test(s.text)&&! /\b(?:ingesteld|ingericht|configured|enabled|tracking is functioning)\b/i.test(affirmative(fields['profile-facts']||'')))return {...s,text:fields.language==='en'?'Proposed measurement — not yet configured or verified: register a submitted enquiry form as a separate event. UTM parameters identify the source; a click alone is not an enquiry. Submit a test enquiry and check that both the enquiry and its source are recorded before starting the campaign.':'Voorgestelde meting — nog niet ingericht of gecontroleerd: registreer een verzonden aanvraagformulier als aparte gebeurtenis. UTM-parameters geven de herkomst; alleen een klik is geen aanvraag. Voer een testaanvraag uit en controleer of zowel de aanvraag als de herkomst worden geregistreerd voordat de campagne start.'};
   if(!/Advertentievoorstel|Ad proposal/i.test(s.heading))return s;
   const embellishment=[...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))||/\b(?:expertise|effici[eë]nt|op maat)\b/i.test(s.text)&&! /\b(?:expertise|effici[eë]nt|op maat)\b/i.test(facts);
   if(!embellishment||!offer)return {...s,text:clean(s.text)};
   const literalOffer=offer.split(/(?<=[.!?])\s+/)[0];
-  const audience=(fields['profile-audience']||'').trim();
+  const audience=(fields['profile-audience']||'').trim().replace(/[.!?]+$/,'');
   return {...s,text:fields.language==='en'?`Proposed variant A: ${literalOffer} Request more information.\nProposed variant B: ${audience?audience+'. ':''}${literalOffer} Request more information.\nCompare an offer-first opening with an audience-first opening; no winner has been measured.`:`Voorstel variant A: ${literalOffer} Vraag meer informatie aan.\nVoorstel variant B: ${audience?audience+'. ':''}${literalOffer} Vraag meer informatie aan.\nVergelijk een opening met het aanbod met een opening voor de doelgroep; er is nog geen winnaar gemeten.`};
  });
  // A repair can merge two formerly different ad headlines. Keep the rate untouched
