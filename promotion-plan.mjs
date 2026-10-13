@@ -19,7 +19,7 @@ export function preservePromotionDetails(raw,fields={}){
   if(p.channel==='Instagram')for(const link of links)if(!text.includes(link))text+='\n'+(fields.language==='en'?'Appointments via the website: ':'Afspraak via de website: ')+link;
   const label=fields.language==='en'?'Image proposal — not yet selected or created: ':'Beeldvoorstel — nog niet gekozen of gemaakt: ';
   const imageBrief=typeof p.imageBrief==='string'&&!p.imageBrief.startsWith(label)?label+p.imageBrief.slice(0,999-label.length):p.imageBrief;
-  return {...p,title:grounded.ads[0].headline||p.title,text,imageBrief};
+  return {...p,title:grounded.ads[0].headline||fields['promotion-name']||(fields.language==='en'?'Post draft':'Berichtconcept'),text,imageBrief};
  })};
 }
 export function validatePromotion(raw,channels=['Facebook','Instagram'],fields={}){
