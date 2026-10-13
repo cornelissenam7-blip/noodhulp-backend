@@ -36,7 +36,8 @@ const taskBrief={
 export function normalizeTaskOutput(p,task,language='nl'){
  if(task==='campaign'){
   if(!p?.plan||Object.keys(campaignParts).some(k=>typeof p.plan[k]!=='string'||!p.plan[k].trim()||p.plan[k].length>5000))throw fail(502,'AI heeft geen volledig campagneplan gemaakt. Probeer opnieuw.');
-  return {title:p.title,summary:p.summary,sections:Object.entries(language==='en'?{goal:'Goal',audience:'Audience',channel:'Channel selection',budget:'Budget',creative:'Ad proposal and test',measurement:'Measurement',evaluation:'Evaluation and adjustment'}:campaignParts).map(([k,heading])=>({heading,text:p.plan[k]})),questions:p.questions,headline:'',intro:'',cta:'',ads:[]};
+  const text=value=>{let clean=value.replace(/\\n/g,'\n');if(language==='en')clean=clean.replace(/\bZoektermen(?=\s*:)/gi,'Search terms').replace(/\bUitsluitingen(?=\s*:)/gi,'Negative keywords');return clean;};
+  return {title:p.title,summary:p.summary,sections:Object.entries(language==='en'?{goal:'Goal',audience:'Audience',channel:'Channel selection',budget:'Budget',creative:'Ad proposal and test',measurement:'Measurement',evaluation:'Evaluation and adjustment'}:campaignParts).map(([k,heading])=>({heading,text:text(p.plan[k])})),questions:p.questions,headline:'',intro:'',cta:'',ads:[]};
  }
  return {...p,sections:task==='ads'?[]:p?.sections,ads:task==='ads'?p?.ads:[],headline:task==='site'?p?.headline:'',intro:task==='site'?p?.intro:'',cta:task==='site'?p?.cta:''};
 }
@@ -59,6 +60,11 @@ export function checkConcreteClaims(p,input){
  if(input.task==='campaign'){
   const requested=affirmative(input.fields['campaign-goal']||input.fields['agent-instructions']||''),plan=p.sections.map(s=>s.text).join(' ');
   const channel=p.sections.find(s=>/Kanaalkeuze|Channel selection/i.test(s.heading))?.text||'';
+  const evaluation=p.sections.find(s=>/Evalueren|Evaluation/i.test(s.heading))?.text||'';
+  const measurement=p.sections.find(s=>/Meten|Measurement/i.test(s.heading))?.text||'';
+  if(/boekhoud|bookkeep/i.test(confirmed)&&! /accountant|accountancy/i.test(confirmed)&&/accountant|accountancy/i.test(channel))issues.push('Een zoekrichting voor accountant/accountancy is niet bevestigd door het boekhoudingsaanbod. Gebruik voorgestelde zoektermen voor uitsluitend het opgegeven aanbod.');
+  if(/(?:geen|no|zero|0).{0,30}(?:aanvragen|leads|enquiries|conversions).{0,45}(?:na\b|after\b|within\b|binnen\b|\d)|(?:na|after|within|binnen)\s+\d.{0,35}(?:geen|no|without).{0,20}(?:aanvragen|leads|enquiries|conversions)/i.test(evaluation)&&! /(?:geen|no|zero|0).{0,30}(?:aanvragen|leads|enquiries|conversions).{0,45}(?:na\b|after\b|within\b|binnen\b|\d)/i.test(source))issues.push('Voeg geen ongevraagd prestatiecriterium of resultaattermijn toe. Gebruik stopcriteria rond ontbrekende of foutieve tracking, budgetoverschrijding of verkeerde doelgroep.');
+  if(measurement&&!( /controleer|test|check|verify|validate/i.test(measurement)&&/tracking|meting|conversie|event|measurement|form|gebeurtenis|werking/i.test(measurement)))issues.push('Werk in measurement een concrete controle van tracking en een testaanvraag uit. UTM-tags geven herkomst; aanvragen hebben een aparte registratie of gebeurtenis nodig. Claim niet dat de meting al werkt.');
   if(/zoektermen|zoekwoorden|search terms|keywords/i.test(requested)&&! /(?:zoektermen|zoekwoorden|search terms|keywords)\s*[:=]\s*\S/i.test(channel))issues.push('Werk de gevraagde zoektermen concreet uit in channel als Zoektermen: gevolgd door voorgestelde termen, zonder zoekvolumes te verzinnen.');
   if(/uitsluiting|uitsluitingen|negative keywords/i.test(requested)&&! /(?:uitsluitingen|uitsluiten|negatieve zoekwoorden|negative keywords|exclusions)\s*[:=]\s*\S/i.test(channel))issues.push('Werk de gevraagde uitsluitingen concreet uit in channel als Uitsluitingen: gevolgd door voorgestelde uitsluitingen.');
   if(/stopcriteria|stopcriteri|stop criteria/i.test(requested)&&! /stop|pauze|pause|suspend|onderbreek/i.test(plan))issues.push('Voeg het gevraagde stopcriterium toe in evaluation, bijvoorbeeld pauzeren bij ontbrekende tracking of overschrijding van het bestaande budget.');
@@ -82,17 +88,21 @@ export function preserveAdDetails(p,input){
  const rawOffer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim();
  const conditions=[...rawOffer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.|excluding|including)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0]);
  const canonical=s=>s.toLowerCase().replace(/\b(?:exclusief|excl\.?|excluding)\b\.?/g,'excluding').replace(/\b(?:inclusief|incl\.?|including)\b\.?/g,'including').replace(/\bbtw\b/g,'vat').replace(/\b(?:materiaal|materialen)\b/g,'materials').replace(/\ben\b/g,'and').replace(/[.,;:]/g,' ').replace(/\s+/g,' ').trim();
+ const price=rawOffer.match(/(?:[€$£]|\b(?:EUR|USD|GBP)\b)\s*\d+(?:[.,]\d+)?/i)?.[0];
+ const unit=rawOffer.match(/\bper\s+[\p{L}\d²]+|\/\s*(?:uur|hour|visit|bezoek|maand|month|stuk|piece|m²|m2)\b/iu)?.[0];
+ const channels=(input.fields['ad-channel']||'').split(/\s*(?:,|\+|&)\s*/).filter(Boolean);
  return {...p,ads:p.ads.map(ad=>{
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
   if(!text)text=offer&&offer.length<=90?offer:ad.text;
-  if(/€|\bEUR\b|\beuro\b/i.test(text)&&conditions.some(c=>!canonical(text).includes(canonical(c)))){
+  if(price&&(!canonical(text).includes(canonical(price))||unit&&!canonical(text).includes(canonical(unit))||conditions.some(c=>!canonical(text).includes(canonical(c))))){
    if(rawOffer.length<=90)text=rawOffer;
    else throw fail(502,'De prijsvoorwaarden passen niet in deze korte advertentie. Verkort het aanbod met behoud van tarief, eenheid en voorwaarden.');
   }
   const suppliedCta=ad.cta.trim();
   const usableCta=action.test(suppliedCta)?suppliedCta:(input.fields.language==='en'?'Request a quote':'Vraag een offerte aan');
   const cta=link&&!usableCta.includes(link)?usableCta+' — '+link:usableCta;
-  return {...ad,text,cta};
+  const index=p.ads.indexOf(ad),channel=channels.length===2&&p.ads.length===2&&channels.every(c=>ad.channel.includes(c))?channels[index]:ad.channel;
+  return {...ad,channel,text,cta};
  })};
 }
 export function cleanAgentInput(body){
@@ -139,6 +149,7 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
  if(['campaign','advice','review'].includes(input.task)&&!p.sections.length&&!p.questions.length)throw fail(502,'AI heeft geen bruikbaar advies gemaakt. Probeer opnieuw.');
  if(input.task==='ads'&&!p.ads.length&&!p.questions.length)throw fail(502,'AI heeft geen advertenties gemaakt. Probeer opnieuw.');
  for(const a of p.ads)if(a.headline.length>30||a.text.length>90)throw fail(502,'De advertentietekst is te lang. Maak opnieuw een voorstel.');
+ for(const a of p.ads)if(!a.headline.trim()||!a.text.trim())throw fail(502,'Een advertentiekop of aanbodtekst ontbreekt. Controleer het aanbod en maak opnieuw een voorstel.');
  if(input.task==='campaign'&&input.fields['campaign-budget']?.trim())p.sections.find(s=>s.heading==='Budget').text=input.fields['campaign-budget'].trim();
  if(input.task==='advice'&&input.fields['support-mode']==='webshop'){
   const en=input.fields.language==='en';

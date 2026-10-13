@@ -39,6 +39,11 @@ export function repairFactualCopy(p,input){
  });
  // A repair can merge two formerly different ad headlines. Keep the rate untouched
  // and use a factual location/service opening rather than artificial synonyms.
+ if(input.task==='ads'){
+  const literalService=offer.split(/\b(?:voor|for)\s*[€$£]|[€$£]/i)[0].trim().replace(/[:—-]+$/,'').trim();
+  const fallback=literalService||fields['profile-name']||offer;
+  for(const ad of next.ads)if(!ad.headline.trim())ad.headline=fallback.length<=30?fallback:fallback.slice(0,30).replace(/\s+\S*$/,'').trim();
+ }
  if(input.task==='ads'&&/varianten|variants/i.test(fields['agent-instructions']||'')&&next.ads.length>1){
   const first=next.ads[0];
   for(let i=1;i<next.ads.length;i++){

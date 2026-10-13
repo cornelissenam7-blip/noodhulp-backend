@@ -132,9 +132,24 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   const {product,kind}=customerAIScope(mode,req.body);
   if(!['sitebuilder','offertetool'].includes(product)&&env.AMCINOVA_CUSTOMER_AGENTS_ENABLED!=='true')throw fault(503,'Deze klantkoppeling wordt nog afgerond.');
   await requireProduct(u,product);
+  const recovery=['admaker','campaign','promotie','shophulp'].includes(product)?req.body.recoveryProject:null;
+  if(recovery){
+   if(!recovery.brief||typeof recovery.brief!=='object'||Array.isArray(recovery.brief))throw fault(400,'Ongeldige herstelkopie.');
+   customerDocument({product,projectId:recovery.id,revision:1,name:recovery.name,payload:{brief:recovery.brief}},u.id);
+  }
   if(Date.now()-aiStart>3600000){aiStart=Date.now();aiCount=0;}if(aiBusy||aiCount>=30)throw fault(429,'De agent is bezig of het uurlimiet is bereikt. Probeer later opnieuw.');
   aiBusy=true;const requestId=randomUUID();
-  try{const result=await credits.run(u.id,product,requestId,async()=>{aiCount++;return(kind==='generate'?generateAgent:kind==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});});res.json({ok:true,[kind==='generate'?'result':'proposal']:result});}finally{aiBusy=false;}
+  try{let savedRecovery=null;const result=await credits.run(u.id,product,requestId,async()=>{
+   aiCount++;const output=await(kind==='generate'?generateAgent:kind==='drawing'?proposeDrawing:proposeQuote)(req.body,{env,fetchImpl});
+   if(recovery){
+    const previous=await db(u,'amcinova_customer_documents','?user_id=eq.'+u.id+'&product_code=eq.'+product+'&project_id=eq.'+recovery.id+'&select=revision&order=revision.desc&limit=1');
+    const row=customerDocument({product,projectId:recovery.id,revision:(previous[0]?.revision||0)+1,name:recovery.name,payload:{id:recovery.id,name:recovery.name,brief:recovery.brief,result:output}},u.id);
+    const saved=await db(u,'amcinova_customer_documents','',row);
+    if(!saved[0]||saved[0].id!==row.id||saved[0].user_id!==u.id)throw fault(503,'Herstelkopie niet bevestigd. Er is geen definitief AI-tegoed gebruikt.');
+    savedRecovery={id:row.id,projectId:row.project_id,revision:row.revision};
+   }
+   return output;
+  });res.json({ok:true,[kind==='generate'?'result':'proposal']:result,...(savedRecovery?{recovery:savedRecovery}:{})});}finally{aiBusy=false;}
  }));
  app.get('/api/customer/credits',wrap(async(req,res)=>{
   const u=await identity(req);

@@ -2,8 +2,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {repairFactualCopy} from './agent-factual-repair.mjs';
 import {generateAgent,checkConcreteClaims} from './agent-ai.mjs';
+import {preserveAdDetails,normalizeTaskOutput} from './agent-ai.mjs';
 import {preservePromotionDetails} from './promotion-plan.mjs';
 const base={title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],questions:[],ads:[]};
+test('live English campaign uses English labels and actual line breaks',()=>{
+ const p={title:'Test',summary:'Draft',questions:[],plan:Object.fromEntries(['goal','audience','channel','budget','creative','measurement','evaluation'].map(k=>[k,k]))};
+ p.plan.channel='Google Ads.\\nZoektermen: dog grooming Bristol.\\nUitsluitingen: grooming supplies.';
+ const fixed=normalizeTaskOutput(p,'campaign','en');assert.match(fixed.sections[2].text,/\nSearch terms:/);assert.match(fixed.sections[2].text,/\nNegative keywords:/);assert.doesNotMatch(fixed.sections[2].text,/\\n|Zoektermen|Uitsluitingen/);
+});
+test('live empty gardener headline is restored from the supplied service',()=>{
+ const p={...base,ads:[{channel:'Facebook',headline:'Professionele tuinservice',text:'€65 per uur, excl. btw en materialen.',cta:'Vraag een offerte aan'}]};
+ const fixed=repairFactualCopy(p,{task:'ads',fields:{'ad-offer':'Tuinonderhoud €65 per uur, exclusief btw en materialen.'}});
+ assert.equal(fixed.ads[0].headline,'Tuinonderhoud');assert.doesNotMatch(fixed.ads[0].headline,/Professionele/);
+});
+test('live English VAT-only variant retains pound price, unit and excluded work',()=>{
+ for(const currency of ['£','$','€']){
+  const offer=`Window cleaning ${currency}35 per visit including VAT; interior cleaning excluded.`;
+  const ad={channel:'Facebook,Instagram',headline:'Window cleaning',text:'VAT included!',cta:'Request a quote'};
+  const fixed=preserveAdDetails({...base,ads:[ad,{...ad}]},{task:'ads',fields:{language:'en','ad-channel':'Facebook,Instagram','ad-offer':offer,'ad-link':'https://example.com/quote'}});
+  assert.deepEqual(fixed.ads.map(a=>a.channel),['Facebook','Instagram']);
+  for(const a of fixed.ads){assert.equal(a.text,offer);assert.match(a.cta,/https:\/\/example.com\/quote/);}
+ }
+});
+test('an altered price unit cannot turn a supplied hourly rate into a visit price',()=>{
+ const offer='Garden care £35 per hour including VAT.';
+ const fixed=preserveAdDetails({...base,ads:[{channel:'Facebook',headline:'Garden care',text:'Garden care £35 per visit including VAT.',cta:'Request a quote'}]},{task:'ads',fields:{'ad-offer':offer}});
+ assert.equal(fixed.ads[0].text,offer);
+});
+test('live bookkeeping plan rejects adjacent profession, invented stop threshold and unverified measurement',()=>{
+ const p={...base,sections:[{heading:'Kanaalkeuze',text:"Zoektermen: boekhouding Groningen, accountant Groningen. Uitsluitingen: vacatures."},{heading:'Meten',text:'Meet aanvragen via UTM-tags.'},{heading:'Evalueren en bijsturen',text:'Stop zodra er geen aanvragen zijn binnengekomen na 4 weken.'}]};
+ const input={task:'campaign',fields:{'profile-offer':'Boekhouding voor zelfstandigen.','campaign-goal':'Zoektermen, uitsluitingen, metingen en stopcriteria.'}};
+ const issues=checkConcreteClaims(p,input);assert.ok(issues.some(s=>/accountant/.test(s)));assert.ok(issues.some(s=>/prestatiecriterium/.test(s)));assert.ok(issues.some(s=>/testaanvraag/.test(s)));
+ p.sections[0].text='Zoektermen: boekhouding Groningen. Uitsluitingen: vacatures.';p.sections[1].text='Voorstel: controleer tracking met een testaanvraag en registreer het formulier apart van UTM-herkomst.';p.sections[2].text='Voorstel: pauzeer bij ontbrekende tracking of budgetoverschrijding.';assert.deepEqual(checkConcreteClaims(p,input),[]);
+});
 test('actual bicycle draft loses unsupported claims and keeps exact price conditions',()=>{
  const input={task:'site',fields:{'builder-offer':'Onderhoudsbeurt €45 inclusief btw, exclusief vervangende onderdelen.'}};
  const p={...base,headline:'Onderhoudsbeurt',intro:'Voor €45 brengen we de fiets in topconditie.',sections:[{heading:'Waarom',text:'Wij bieden snelle en vakkundige service.'}]};
