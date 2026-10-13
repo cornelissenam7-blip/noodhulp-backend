@@ -3,6 +3,26 @@ import assert from 'node:assert/strict';
 import {checkConcreteClaims,preserveAdDetails} from './agent-ai.mjs';
 import {validatePromotion} from './promotion-plan.mjs';
 const result=text=>({title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:'Boswandeling',text,cta:'Boek een boswandeling'}]});
+test('live bookkeeper campaign cannot invent free or professional service in creative sections',()=>{
+ const p={...result(''),ads:[],sections:[{heading:'Advertentievoorstel en test',text:'Professionele boekhouding. Gratis kennismaking.'}]};
+ const input={task:'campaign',fields:{'profile-offer':'Boekhouding voor zzp’ers.','profile-facts':'Geen klantreviews, zoekvolumes, conversiecijfers of garanties bekend.'}};
+ const issues=checkConcreteClaims(p,input);assert.ok(issues.some(s=>/gratis/i.test(s)));assert.ok(issues.some(s=>/professionele/i.test(s)));
+ assert.deepEqual(checkConcreteClaims(p,{task:'campaign',fields:{'profile-offer':'Professionele boekhouding met gratis kennismaking.'}}),[]);
+});
+test('gardener variants must differ when explicitly requested and summaries cannot invent sharp pricing',()=>{
+ const p={...result('Tuinonderhoud voor €65 per uur.'),summary:'Tuinonderhoud voor een scherpe prijs.'};p.ads.push({...p.ads[0],channel:'Instagram'});
+ const input={task:'ads',fields:{'ad-offer':'Tuinonderhoud voor €65 per uur.','agent-instructions':'Maak twee varianten.'}};
+ assert.ok(checkConcreteClaims(p,input).some(s=>/scherpe prijs/.test(s)));assert.ok(checkConcreteClaims(p,input).some(s=>/identiek/.test(s)));
+ p.summary='Tuinonderhoud';p.ads[1].headline='Onderhoud van je tuin';assert.deepEqual(checkConcreteClaims(p,input),[]);
+});
+test('campaign must cover requested search terms, exclusions and stop criteria',()=>{
+ const p={...result(''),ads:[],sections:[{heading:'Kanaalkeuze',text:'Google Ads.'},{heading:'Evalueren en bijsturen',text:'Evalueer na 30 dagen.'}]};
+ const input={task:'campaign',fields:{'agent-instructions':'Geef zoektermen, uitsluitingen en stopcriteria.'}};
+ assert.equal(checkConcreteClaims(p,input).length,3);
+ p.sections[0].text='Voorgestelde zoektermen: boekhouder zzp Groningen. Uitsluitingen: vacatures, opleiding.';
+ p.sections[1].text='Pauzeer als tracking niet werkt of het budget wordt overschreden.';
+ assert.deepEqual(checkConcreteClaims(p,input),[]);
+});
 test('live painting regression removes second English contact sentence and rejects invented expert claims',()=>{
  const input={task:'ads',fields:{'ad-offer':'Interior wall painting for homes.','profile-facts':'No professional experience is supplied.'}};
  const draft=result('Interior wall painting for homes. Get in touch!');
