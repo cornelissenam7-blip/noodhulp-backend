@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import {checkConcreteClaims,preserveAdDetails} from './agent-ai.mjs';
 import {validatePromotion} from './promotion-plan.mjs';
 const result=text=>({title:'TEST',summary:'',headline:'',intro:'',cta:'',sections:[],ads:[{headline:'Boswandeling',text,cta:'Boek een boswandeling'}]});
+test('live bicycle page rejects invented expertise and booking features',()=>{
+ const p={...result(''),ads:[],intro:'Professionele onderhoudsbeurt voor €45 inclusief btw. Onze experts helpen. Kies een datum en tijdstip.'};
+ const input={task:'site',fields:{'builder-offer':'Onderhoudsbeurt €45 inclusief btw, exclusief onderdelen.'}};
+ const issues=checkConcreteClaims(p,input);assert.ok(issues.some(s=>/Professionele/.test(s)));assert.ok(issues.some(s=>/experts/.test(s)));assert.ok(issues.some(s=>/boekingsfunctie/.test(s)));
+ p.intro='Onderhoudsbeurt €45 inclusief btw, exclusief onderdelen. Vraag een afspraak aan.';assert.deepEqual(checkConcreteClaims(p,input),[]);
+});
+test('live bookkeeper creative cannot invent affordability or reliability',()=>{
+ const p={...result(''),ads:[],sections:[{heading:'Advertentievoorstel en test',text:'Betaalbaar en betrouwbaar.'}]};
+ assert.equal(checkConcreteClaims(p,{task:'campaign',fields:{'profile-offer':'Boekhouding voor zelfstandigen.'}}).length,2);
+});
+test('gardener noun-form CTA stays only in CTA field',()=>{
+ const input={task:'ads',fields:{'ad-offer':'Tuinonderhoud €65 per uur.'}};
+ const p=result('Tuinonderhoud €65 per uur. Offerte aanvragen!');
+ assert.equal(preserveAdDetails(p,input).ads[0].text,'Tuinonderhoud €65 per uur.');
+});
 test('live bookkeeper campaign cannot invent free or professional service in creative sections',()=>{
  const p={...result(''),ads:[],sections:[{heading:'Advertentievoorstel en test',text:'Professionele boekhouding. Gratis kennismaking.'}]};
  const input={task:'campaign',fields:{'profile-offer':'Boekhouding voor zzp’ers.','profile-facts':'Geen klantreviews, zoekvolumes, conversiecijfers of garanties bekend.'}};
