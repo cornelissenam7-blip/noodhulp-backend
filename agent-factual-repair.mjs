@@ -1,6 +1,6 @@
 // Repair concrete unsupported marketing embellishments using supplied facts.
 // No extra model call, fabricated business facts or generic successful-plan fallback.
-const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|beste|best)\b/gi;
+const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety)\b/gi;
 const affirmative=s=>s.split(/[.!?\n]+/).filter(part=>! /\b(?:no|not|unknown|unconfirmed|geen|niet|onbekend)\b/i.test(part)).join(' ');
 const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function repairFactualCopy(p,input){
@@ -12,7 +12,7 @@ export function repairFactualCopy(p,input){
  const clean=text=>{
   if(typeof text!=='string')return text;
   // Whole unsupported promise sentences are omitted, not reworded as facts.
-  const sentences=text.split(/(?<=[.!?])\s+/).filter(s=>!([...s.matchAll(unsupported)].some(m=>/topconditie|topvorm|top-notch|perfect/i.test(m[0])&&!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))));
+  const sentences=text.split(/(?<=[.!?])\s+/).filter(s=>!([...s.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))));
   let value=sentences.join(' ').replace(unsupported,claim=>new RegExp('\\b'+escape(claim)+'\\b','i').test(facts)?claim:'');
   if(fixedPrice)value=value.replace(/\b(?:vanaf|from|starting (?:at|from))\s*(?=[€$£]|\d)/gi,'');
   return value.replace(/\s{2,}/g,' ').replace(/\s+([,.!?:;])/g,'$1').trim();
@@ -23,6 +23,8 @@ export function repairFactualCopy(p,input){
   next.sections=next.sections.filter(s=>![...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts)));
   if(!next.intro&&offer)next.intro=offer;
   if(!next.headline&&offer)next.headline=offer;
+  if(!affirmative(fields['profile-facts']||'').trim())next.sections=next.sections.filter(s=>facts.toLowerCase().includes(s.text.trim().toLowerCase()));
+  if(!next.summary)next.summary=fields.language==='en'?'Draft based on your supplied offer.':'Concept op basis van je opgegeven aanbod.';
  }
  if(input.task==='campaign')next.sections=next.sections.map(s=>{
   if(!/Advertentievoorstel|Ad proposal/i.test(s.heading))return s;
