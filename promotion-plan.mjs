@@ -13,7 +13,9 @@ export function preservePromotionDetails(raw,fields={}){
   let text=p.text;
   if(/€|\bEUR\b|\beuro\b/i.test(text))for(const condition of conditions)if(!text.toLowerCase().includes(condition.toLowerCase()))text+='\n'+(fields.language==='en'?'Price condition: ':'Prijsvoorwaarde: ')+condition+'.';
   if(p.channel==='Facebook')for(const link of links)if(!text.includes(link))text+='\n'+link;
-  return {...p,text};
+  const label=fields.language==='en'?'Image proposal — not yet selected or created: ':'Beeldvoorstel — nog niet gekozen of gemaakt: ';
+  const imageBrief=typeof p.imageBrief==='string'&&!p.imageBrief.startsWith(label)?label+p.imageBrief.slice(0,999-label.length):p.imageBrief;
+  return {...p,text,imageBrief};
  })};
 }
 export function validatePromotion(raw,channels=['Facebook','Instagram'],fields={}){

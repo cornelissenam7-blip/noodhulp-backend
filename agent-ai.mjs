@@ -1,4 +1,5 @@
 import {agentExpertise} from './agency-expertise.mjs';
+import {repairFactualCopy} from './agent-factual-repair.mjs';
 import {localizePublicResult,publicOutputText} from './public-output-language.mjs';
 import {researchProductBrand} from './product-brand.mjs';
 import {translateUI} from './ui-translation.mjs';
@@ -114,12 +115,12 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
  const signal=AbortSignal.timeout(50000);
  let p,feedback=[];
  for(let attempt=0;attempt<2;attempt++){
-  let response;try{response=await fetchImpl('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:env.OPENAI_AGENT_MODEL||env.OPENAI_QUOTE_MODEL||'gpt-4o-mini',store:false,instructions:instructions+(['site','advice'].includes(input.task)&&input.fields['support-mode']!=='webshop'?'\n'+brandStrategyBrief+' Gebruik bij advies afzonderlijke sections voor Doelgroep en probleem, Merk en onderscheid, Aanbod en verkooproute, Kosten en vraagtest.':'' )+(input.task==='advice'&&input.fields['support-mode']==='webshop'?'\n'+shopSupportBrief:'')+(attempt?' De vorige poging is afgekeurd. Pas ALLE correcties in corrections toe en laat onbevestigde feiten weg. Herstel previousDraft gericht met corrections: verwijder betwiste passages, behoud correcte inhoud. Voeg niets nieuws toe. Gebruik lege sections/questions waar mogelijk. Houd het verplichte campagneschema intact.':''),input:JSON.stringify(input),max_output_tokens:4500,text:{format:{type:'json_schema',name:'amcinova_'+input.task,strict:true,schema}}}),signal})}catch{throw fail(503,'AI is tijdelijk niet bereikbaar. Je invoer blijft staan.');}
+  let response;try{response=await fetchImpl('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+env.OPENAI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:env.OPENAI_AGENT_MODEL||env.OPENAI_QUOTE_MODEL||'gpt-4o-mini',store:false,instructions:instructions+(input.task==='advice'&&input.fields['support-mode']!=='webshop'?'\n'+brandStrategyBrief+' Gebruik bij advies afzonderlijke sections voor Doelgroep en probleem, Merk en onderscheid, Aanbod en verkooproute, Kosten en vraagtest.':'' )+(input.task==='advice'&&input.fields['support-mode']==='webshop'?'\n'+shopSupportBrief:'')+(attempt?' De vorige poging is afgekeurd. Pas ALLE correcties in corrections toe en laat onbevestigde feiten weg. Herstel previousDraft gericht met corrections: verwijder betwiste passages, behoud correcte inhoud. Voeg niets nieuws toe. Gebruik lege sections/questions waar mogelijk. Houd het verplichte campagneschema intact.':''),input:JSON.stringify(input),max_output_tokens:4500,text:{format:{type:'json_schema',name:'amcinova_'+input.task,strict:true,schema}}}),signal})}catch{throw fail(503,'AI is tijdelijk niet bereikbaar. Je invoer blijft staan.');}
   if(!response.ok)throw fail(503,'AI-aanvraag mislukt. Controleer het API-tegoed en de backendinstellingen.');
   const result=await response.json();if(result.status!=='completed')throw fail(502,'Het AI-antwoord is niet volledig. Probeer opnieuw.');
   try{p=JSON.parse((result.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(502,'AI gaf geen bruikbaar antwoord.');}
   const previousDraft=p;
-  p=validateAgentOutput(preserveAdDetails(normalizeTaskOutput(p,input.task,input.fields.language),input));
+  p=validateAgentOutput(preserveAdDetails(repairFactualCopy(normalizeTaskOutput(p,input.task,input.fields.language),input),input));
   feedback=checkConcreteClaims(p,input);
   if(!feedback.length)break;
   input.corrections=feedback;
@@ -131,6 +132,11 @@ Je mag aantrekkelijk en beknopt formuleren. Niet alle feiten hoeven in iedere te
  if(input.task==='ads'&&!p.ads.length&&!p.questions.length)throw fail(502,'AI heeft geen advertenties gemaakt. Probeer opnieuw.');
  for(const a of p.ads)if(a.headline.length>30||a.text.length>90)throw fail(502,'De advertentietekst is te lang. Maak opnieuw een voorstel.');
  if(input.task==='campaign'&&input.fields['campaign-budget']?.trim())p.sections.find(s=>s.heading==='Budget').text=input.fields['campaign-budget'].trim();
+ if(input.task==='advice'&&input.fields['support-mode']==='webshop'){
+  const en=input.fields.language==='en';
+  p.sections=p.sections.map(s=>/^(?:Vastgesteld|Established|Confirmed|Findings)$/i.test(s.heading.trim())?{...s,heading:en?'Supplied information — not independently checked':'Aangeleverde informatie — niet zelfstandig gecontroleerd'}:s);
+  if(/SMTP/i.test(input.fields['agent-instructions']||''))p.sections.push({heading:en?'Email verification':'E-mailcontrole',text:en?'SMTP acceptance does not prove delivery to the recipient’s inbox. Check the provider log and recipient or spam folder separately.':'SMTP-acceptatie bewijst geen bezorging in de inbox. Controleer afzonderlijk het providerlog en ontvangst bij de klant, inclusief spam.'});
+ }
  return p;
 }
 export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,now=()=>Date.now()}={}){
