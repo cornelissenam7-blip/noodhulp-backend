@@ -13,10 +13,11 @@ export function verifyCartPayment(payment,order,user){
  if(!['open','pending','paid','failed','canceled','expired','authorized'].includes(payment.status))throw fail(503,'Betaalstatus nog niet beschikbaar.');
  return {id:payment.id,status:payment.status,mode:'test',amount,productAccessGranted:false};
 }
-export async function startCartPayment({order,user,payments,save}){
+export async function startCartPayment({order,user,payments,save,language='nl'}){
  const amount=cartPaymentAmount(order,user);
  if(order.estimate.testPaymentId){const payment=await payments.get(order.estimate.testPaymentId);verifyCartPayment(payment,order,user);return payment;}
- const payment=await payments.create({amount,description:'TEST Amcinova winkelmand '+order.id,idempotencyKey:'amcinova-cart-'+order.id,redirectUrl:'https://agents.amcinova.com/winkelmand.html?testorder='+order.id,webhookUrl:'https://api.amcinova.com/api/amcinova/payments/webhook',metadata:{orderId:order.id,userId:user.id}});
+ const lang=language==='en'?'en':'nl';
+ const payment=await payments.create({amount,locale:lang==='en'?'en_GB':'nl_NL',description:'TEST Amcinova '+(lang==='en'?'shopping cart ':'winkelmand ')+order.id,idempotencyKey:'amcinova-cart-'+order.id,redirectUrl:'https://agents.amcinova.com/winkelmand.html?testorder='+order.id+'&lang='+lang,webhookUrl:'https://api.amcinova.com/api/amcinova/payments/webhook',metadata:{orderId:order.id,userId:user.id}});
  verifyCartPayment(payment,order,user);
  // Provider idempotency protects concurrent requests and retries after a failed database write.
  await save({...order.estimate,testPaymentId:payment.id});

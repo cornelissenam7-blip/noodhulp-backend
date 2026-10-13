@@ -184,7 +184,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
  app.post('/api/customer/test-orders/:id/payment',json({limit:'2kb'}),wrap(async(req,res)=>{
   const u=await identity(req),order=await ownedTestOrder(req,u);
   if(!testPayments?.ready||!adminDb)throw fault(503,'Testbetalingen zijn nog niet beschikbaar.');
-  const payment=await startCartPayment({order,user:u,payments:testPayments,save:async estimate=>{
+  const payment=await startCartPayment({order,user:u,payments:testPayments,language:req.body?.language,save:async estimate=>{
    const rows=await adminDb('amcinova_test_orders',{method:'PATCH',query:'?id=eq.'+order.id+'&user_id=eq.'+u.id,body:{estimate},prefer:'return=representation'});
    if(!rows?.length)throw fault(503,'Testbetaling kon niet worden opgeslagen. Probeer dezelfde aanvraag opnieuw.');
   }});
