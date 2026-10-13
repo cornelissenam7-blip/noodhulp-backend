@@ -23,7 +23,10 @@ export function repairFactualCopy(p,input){
   next.sections=next.sections.filter(s=>![...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts)));
   if(!next.intro&&offer)next.intro=offer;
   if(!next.headline&&offer)next.headline=offer;
-  if(!affirmative(fields['profile-facts']||'').trim())next.sections=next.sections.filter(s=>facts.toLowerCase().includes(s.text.trim().toLowerCase()));
+  if(!affirmative(fields['profile-facts']||'').trim()){
+   const normalize=s=>s.toLowerCase().replace(/[.!?]+/g,' ').replace(/\s+/g,' ').trim();
+   next.sections=next.sections.filter(s=>normalize(facts).includes(normalize(s.text)));
+  }
   if(!next.summary)next.summary=fields.language==='en'?'Draft based on your supplied offer.':'Concept op basis van je opgegeven aanbod.';
  }
  if(input.task==='campaign')next.sections=next.sections.map(s=>{
