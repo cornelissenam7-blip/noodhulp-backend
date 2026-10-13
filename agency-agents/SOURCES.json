@@ -1,0 +1,1198 @@
+{
+  "version": "amcinova-agency-20261013",
+  "catalogAppVersion": "0.3.2",
+  "selection": "Relevant current and near-term Amcinova development, marketing, operations and customer-tool workflows. Specialized unrelated industries and unsupported regional platforms are excluded.",
+  "count": 170,
+  "profiles": [
+    {
+      "file": "design/design-brand-guardian.md",
+      "name": "Brand Guardian",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-brand-guardian.md",
+      "sha256": "8077ee1001267118e6113df8d069298688ca60a9ac232ba363ed397ef7847f79"
+    },
+    {
+      "file": "design/design-image-prompt-engineer.md",
+      "name": "Image Prompt Engineer",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-image-prompt-engineer.md",
+      "sha256": "8cdace77dd4483cc6512bdaea9ce1853c8c8d21b3d1a2499353d5fe13c5de072"
+    },
+    {
+      "file": "design/design-inclusive-visuals-specialist.md",
+      "name": "Inclusive Visuals Specialist",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-inclusive-visuals-specialist.md",
+      "sha256": "35af39e5e741960590c217cb20fc7e455489ed4b012967f0a8156d8d5347165e"
+    },
+    {
+      "file": "design/design-persona-walkthrough.md",
+      "name": "Persona Walkthrough Specialist",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-persona-walkthrough.md",
+      "sha256": "1b16426c315a07f80594cb9b0dbd37c01bac62d18c25256c96a7f024e089d097"
+    },
+    {
+      "file": "design/design-ui-designer.md",
+      "name": "UI Designer",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ui-designer.md",
+      "sha256": "76b6296861e10944dd3e273255c1ef6d0c4f23b8bab475a690f444f58db06d60"
+    },
+    {
+      "file": "design/design-ui-finish-gate-reviewer.md",
+      "name": "UI Finish-Gate Reviewer",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ui-finish-gate-reviewer.md",
+      "sha256": "bd41600e2295f09043a1f9d760a1dc7876e8c97495510e1a2deddcbb5fe1c6ad"
+    },
+    {
+      "file": "design/design-ux-architect.md",
+      "name": "UX Architect",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ux-architect.md",
+      "sha256": "d60dd8236ac43a4105fcfc7b06b3771401ea9dbda460d195fb95e71b4a01daa6"
+    },
+    {
+      "file": "design/design-ux-researcher.md",
+      "name": "UX Researcher",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-ux-researcher.md",
+      "sha256": "9cec8b3e34d67ee1a06e64a50eefcdced98fd500b6300b4e4fa1ad0b82b85554"
+    },
+    {
+      "file": "design/design-visual-storyteller.md",
+      "name": "Visual Storyteller",
+      "division": "design",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/design/design-visual-storyteller.md",
+      "sha256": "14a50c7aace059d93acc6c75a053bc50ca5ea268677f73e6bf6f7b9030d59af6"
+    },
+    {
+      "file": "engineering/engineering-ai-data-remediation-engineer.md",
+      "name": "AI Data Remediation Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-ai-data-remediation-engineer.md",
+      "sha256": "3859be34aa40024b524237e1ccede6951f42aafe62f74825d8f62a0b1c1309dc"
+    },
+    {
+      "file": "engineering/engineering-ai-engineer.md",
+      "name": "AI Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-ai-engineer.md",
+      "sha256": "ec097db36faac9db0595448c834c06c81ab9d778e95dbcbc3ff5e47b9925ae77"
+    },
+    {
+      "file": "engineering/engineering-api-platform-engineer.md",
+      "name": "API Platform Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-api-platform-engineer.md",
+      "sha256": "578357a1ad364e1c143b0ff42d8e6f3568a190b7da24261ea49b6e668b2fd343"
+    },
+    {
+      "file": "engineering/engineering-backend-architect.md",
+      "name": "Backend Architect",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-backend-architect.md",
+      "sha256": "1e7c00a9867b3b97a9bf772467a03278ec4b9f425ca313ec192fbbdab26d115a"
+    },
+    {
+      "file": "engineering/engineering-cms-developer.md",
+      "name": "CMS Developer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-cms-developer.md",
+      "sha256": "970a4a4ad39305026c8d6dc3e56568a4d5ba681470090560a99488df5b016c4e"
+    },
+    {
+      "file": "engineering/engineering-code-reviewer.md",
+      "name": "Code Reviewer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-code-reviewer.md",
+      "sha256": "74cbe8050462ec35f246cdd465b8623227a590e46fc35295816125ecea009849"
+    },
+    {
+      "file": "engineering/engineering-codebase-onboarding-engineer.md",
+      "name": "Codebase Onboarding Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-codebase-onboarding-engineer.md",
+      "sha256": "6a477e0927677d138e0e134eb4d6481e32581455f801df3c217a112df362670d"
+    },
+    {
+      "file": "engineering/engineering-data-engineer.md",
+      "name": "Data Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-data-engineer.md",
+      "sha256": "170d1ae46af8bb7b2da9ba9b55f8d61b3d65e15898dbc964ff50893130965f4a"
+    },
+    {
+      "file": "engineering/engineering-data-visualization-engineer.md",
+      "name": "Data Visualization Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-data-visualization-engineer.md",
+      "sha256": "01af926bda70237c6cd22b145f7e237f59f27888b24c719da3dd205c41e0eac0"
+    },
+    {
+      "file": "engineering/engineering-database-optimizer.md",
+      "name": "Database Optimizer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-database-optimizer.md",
+      "sha256": "2825a821f6adec6dc126e5d3417a014b9ed059d95d01da8770b2488d4ccf8a98"
+    },
+    {
+      "file": "engineering/engineering-database-reliability-engineer.md",
+      "name": "Database Reliability Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-database-reliability-engineer.md",
+      "sha256": "55372d67236fcaf3b77bf394b7a0f65bdc35b94730ec6c6a84911caa4d7bf5d8"
+    },
+    {
+      "file": "engineering/engineering-desktop-app-engineer.md",
+      "name": "Desktop App Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-desktop-app-engineer.md",
+      "sha256": "6691b1d564bc484f7e156730ab2bc506dd77763de3f6f69f52ac145b53f4cf9f"
+    },
+    {
+      "file": "engineering/engineering-developer-tooling-engineer.md",
+      "name": "Developer Tooling Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-developer-tooling-engineer.md",
+      "sha256": "0e77d51688ff01e729e4cc1c36979d8b109e8f23f11a4b9e451f3b2620b91268"
+    },
+    {
+      "file": "engineering/engineering-devops-automator.md",
+      "name": "DevOps Automator",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-devops-automator.md",
+      "sha256": "83dc1f6ac0d6a7023022ed962b1eb12534b72301eb035075d158bfa1a7240c1f"
+    },
+    {
+      "file": "engineering/engineering-email-intelligence-engineer.md",
+      "name": "Email Intelligence Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-email-intelligence-engineer.md",
+      "sha256": "e7c6921592319dda74adbeff855f5c120f9d8df7471e5b695b6ab050e0943ebe"
+    },
+    {
+      "file": "engineering/engineering-finops-engineer.md",
+      "name": "FinOps Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-finops-engineer.md",
+      "sha256": "28eb1ab82f9f08c85e999d227a8bf37afdf2a3e5df32f5ed282986e2f549f5a3"
+    },
+    {
+      "file": "engineering/engineering-frontend-developer.md",
+      "name": "Frontend Developer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-frontend-developer.md",
+      "sha256": "ec03c24c96a455659f1838af6ea569cbce37d29cba8127e7f1c2c9f7cf27df63"
+    },
+    {
+      "file": "engineering/engineering-git-workflow-master.md",
+      "name": "Git Workflow Master",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-git-workflow-master.md",
+      "sha256": "6fd4c3af31c27a328091fd172360aec877a16051461e0675b48284b49063148b"
+    },
+    {
+      "file": "engineering/engineering-i18n-engineer.md",
+      "name": "Internationalization Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-i18n-engineer.md",
+      "sha256": "c69e7e62d7bee11a6bd62fcd6792b592ea42d9c380f4f3ec8da537c80401e5e2"
+    },
+    {
+      "file": "engineering/engineering-identity-access-engineer.md",
+      "name": "Identity & Access Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-identity-access-engineer.md",
+      "sha256": "d90ce592941958479a802cd80f432d26cd713cc7138868d88db1ee185c6b3dcc"
+    },
+    {
+      "file": "engineering/engineering-incident-response-commander.md",
+      "name": "Incident Response Commander",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-incident-response-commander.md",
+      "sha256": "e6526ea45e8543bc405911aac19d68c9bbd92d36d86cb56cc0615c097f30994a"
+    },
+    {
+      "file": "engineering/engineering-it-service-manager.md",
+      "name": "IT Service Manager",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-it-service-manager.md",
+      "sha256": "ac8fc557844b0d70569d7a085f1aef3ed8623a8d29f25a664a193ce0be7acef8"
+    },
+    {
+      "file": "engineering/engineering-knowledge-graph-engineer.md",
+      "name": "Knowledge Graph Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-knowledge-graph-engineer.md",
+      "sha256": "af287cdde0ebc1b472610eb93be9832a6638c336d395cbdee6d901b788826762"
+    },
+    {
+      "file": "engineering/engineering-minimal-change-engineer.md",
+      "name": "Minimal Change Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-minimal-change-engineer.md",
+      "sha256": "01376dceff3b81eaa285643b3bb0276ccea7f72c7395423d812f27983d02e93c"
+    },
+    {
+      "file": "engineering/engineering-mobile-app-builder.md",
+      "name": "Mobile App Builder",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-mobile-app-builder.md",
+      "sha256": "03361c59841f74d4384902b8fd9d0aa437bb5705a305727ac936d441d2592c05"
+    },
+    {
+      "file": "engineering/engineering-mobile-release-engineer.md",
+      "name": "Mobile Release Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-mobile-release-engineer.md",
+      "sha256": "b0da61c6f1da6ca3f8932c6814ef1db9b24dd5f53eeef9c9cc7a9845cb914478"
+    },
+    {
+      "file": "engineering/engineering-multi-agent-systems-architect.md",
+      "name": "Multi-Agent Systems Architect",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-multi-agent-systems-architect.md",
+      "sha256": "b8c0d588c7f396d61674e7de9eb0c95a6798c855f33f782c086c12f3124c42b8"
+    },
+    {
+      "file": "engineering/engineering-payments-billing-engineer.md",
+      "name": "Payments & Billing Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-payments-billing-engineer.md",
+      "sha256": "2024f68e5f0b5c72c4f2d64a530f3fd592af24c32839dc392b93a7420624d0d5"
+    },
+    {
+      "file": "engineering/engineering-pdf-engine-architect.md",
+      "name": "PDF Engine Architect",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-pdf-engine-architect.md",
+      "sha256": "4a93fe63e095640e22452fca976d351e4bc043ed9f2d9eafdc1e7cafbe194e79"
+    },
+    {
+      "file": "engineering/engineering-platform-engineer.md",
+      "name": "Platform Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-platform-engineer.md",
+      "sha256": "c1fdcc73e7b1cde4ffe49314bc1447ef21f2da76d098eef7c5a903383b8753ae"
+    },
+    {
+      "file": "engineering/engineering-privacy-engineer.md",
+      "name": "Privacy Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-privacy-engineer.md",
+      "sha256": "cfd689ad1b250364045cde397deb01d981d8a97015a491773c952dd6c2174fce"
+    },
+    {
+      "file": "engineering/engineering-prompt-engineer.md",
+      "name": "Prompt Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-prompt-engineer.md",
+      "sha256": "313a0c25213f47288ce4d9c3090739eb585f6295811900750053cfbfe2b4ff41"
+    },
+    {
+      "file": "engineering/engineering-rag-pipeline-engineer.md",
+      "name": "RAG Pipeline Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-rag-pipeline-engineer.md",
+      "sha256": "88855badb1853ad047956cd57a59e90fe21de5f1057375d1bf34d50aeea6122f"
+    },
+    {
+      "file": "engineering/engineering-rapid-prototyper.md",
+      "name": "Rapid Prototyper",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-rapid-prototyper.md",
+      "sha256": "7b942a0ba7ff1d2f1320ba427250f47b3671f1a9f794391a1eea880d359e4f1e"
+    },
+    {
+      "file": "engineering/engineering-realtime-collaboration-engineer.md",
+      "name": "Realtime Collaboration Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-realtime-collaboration-engineer.md",
+      "sha256": "c7e20f36ad03040e5ede011444cfa217b02d91383190e736ca9e0094a0ee63a5"
+    },
+    {
+      "file": "engineering/engineering-search-relevance-engineer.md",
+      "name": "Search Relevance Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-search-relevance-engineer.md",
+      "sha256": "cfeb9de7469386d5efb94acabf7a8122f23219791f0ea4ee7268b120e3f3b517"
+    },
+    {
+      "file": "engineering/engineering-senior-developer.md",
+      "name": "Senior Developer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-senior-developer.md",
+      "sha256": "9e47d89de2a1ce5ff137290459a05f2ab3e8563b081961fa17b8fa9c2906b775"
+    },
+    {
+      "file": "engineering/engineering-software-architect.md",
+      "name": "Software Architect",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-software-architect.md",
+      "sha256": "d3fcc2e6338b33e5279d0efb91cf0794cbadb873b30df41b5dddc1bd0422e5cc"
+    },
+    {
+      "file": "engineering/engineering-sre.md",
+      "name": "SRE (Site Reliability Engineer)",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-sre.md",
+      "sha256": "4df3845023c6ec3baa5e4ed19e60ece59b7619cf83eaacec2fa8243c1a531b5e"
+    },
+    {
+      "file": "engineering/engineering-technical-writer.md",
+      "name": "Technical Writer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-technical-writer.md",
+      "sha256": "c661bc19e8e92ab5cf014a232807ce6f5968e2225d37fc86c446f3caecae0ff9"
+    },
+    {
+      "file": "engineering/engineering-universal-document-compiler.md",
+      "name": "Universal Document Compiler",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-universal-document-compiler.md",
+      "sha256": "7ed24c386131bb9eeded1e1af7cfc7d601b6eea393a77941752924333bd02f82"
+    },
+    {
+      "file": "engineering/engineering-video-streaming-engineer.md",
+      "name": "Video Streaming Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-video-streaming-engineer.md",
+      "sha256": "dba939de5e5d9392d58599483d0456ca093f5228295794c7f3127ceb6eabf96a"
+    },
+    {
+      "file": "engineering/engineering-voice-ai-integration-engineer.md",
+      "name": "Voice AI Integration Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-voice-ai-integration-engineer.md",
+      "sha256": "bbbf35a779ebf42b9d9c443acd641830e6f3475c51b6341d6f7710452b239de2"
+    },
+    {
+      "file": "engineering/engineering-webassembly-engineer.md",
+      "name": "WebAssembly Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-webassembly-engineer.md",
+      "sha256": "cc335c73ae55553a81b2fc6f86ed4f7ae3feb30a3b058e6614fae08899f2e5fa"
+    },
+    {
+      "file": "engineering/engineering-wordpress-performance.md",
+      "name": "WordPress Performance Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-wordpress-performance.md",
+      "sha256": "342dd9efa560cafeee454ada79ca6ce39f4c6452efc5109cf1a11f04bf3063f0"
+    },
+    {
+      "file": "engineering/engineering-wordpress-shopping-cart.md",
+      "name": "WordPress Shopping Cart Engineer",
+      "division": "engineering",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/engineering/engineering-wordpress-shopping-cart.md",
+      "sha256": "6c2c29a6267b8f6987af86c584711a58180abc3d9c036d4edb8e179d12630ee5"
+    },
+    {
+      "file": "finance/finance-bookkeeper-controller.md",
+      "name": "Bookkeeper & Controller",
+      "division": "finance",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/finance/finance-bookkeeper-controller.md",
+      "sha256": "4a6173e0f50d5c22c79247da361e58efe5e5c89442041102b5f9ed378bfdc87b"
+    },
+    {
+      "file": "finance/finance-financial-analyst.md",
+      "name": "Financial Analyst",
+      "division": "finance",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/finance/finance-financial-analyst.md",
+      "sha256": "bccfb74a352d2024b6d63a780558fdee6919f6b97d2649391a1d1016db74933d"
+    },
+    {
+      "file": "finance/finance-fpa-analyst.md",
+      "name": "FP&A Analyst",
+      "division": "finance",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/finance/finance-fpa-analyst.md",
+      "sha256": "698fc892cd381c00c688e9ed2026c640b63ddd8c422c6a94f94bb2d8a2636add"
+    },
+    {
+      "file": "finance/finance-tax-strategist.md",
+      "name": "Tax Strategist",
+      "division": "finance",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/finance/finance-tax-strategist.md",
+      "sha256": "44b7a85a2222bdd7895f483ba10320d8a0e2e712c9630bcbc5cd78fa4f904326"
+    },
+    {
+      "file": "marketing/marketing-aeo-foundations.md",
+      "name": "AEO Foundations Architect",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-aeo-foundations.md",
+      "sha256": "be2afbdeb20a62de0219bcc19b43cc8b8e1e50bb8387cd579b776a4a43f02b7e"
+    },
+    {
+      "file": "marketing/marketing-agentic-search-optimizer.md",
+      "name": "Agentic Search Optimizer",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-agentic-search-optimizer.md",
+      "sha256": "9998769c7171c0da4ede7e20f445a88794c7e24ab205ed4d89ef6e26a1f5ba86"
+    },
+    {
+      "file": "marketing/marketing-ai-citation-strategist.md",
+      "name": "AI Citation Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-ai-citation-strategist.md",
+      "sha256": "5603fc09ea641179084b100023753568299d7d58ac289655372fb9f507259693"
+    },
+    {
+      "file": "marketing/marketing-app-store-optimizer.md",
+      "name": "App Store Optimizer",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-app-store-optimizer.md",
+      "sha256": "8c115d3c90307db0a2bc7e4e0644bdd638cb5f1e414474638c72ae483d05e053"
+    },
+    {
+      "file": "marketing/marketing-carousel-growth-engine.md",
+      "name": "Carousel Growth Engine",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-carousel-growth-engine.md",
+      "sha256": "fb764a43f4b847633c825a51f345cb4848f511eea0e14f7eb0739f63e8bb67af"
+    },
+    {
+      "file": "marketing/marketing-content-creator.md",
+      "name": "Content Creator",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-content-creator.md",
+      "sha256": "db330f09ac98f9b6ff60eaba1eb634eedc79dc5ece09ac8dfe987330ae502ef8"
+    },
+    {
+      "file": "marketing/marketing-cross-border-ecommerce.md",
+      "name": "Cross-Border E-Commerce Specialist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-cross-border-ecommerce.md",
+      "sha256": "64aaefa4375b61c68857f365b24d1e00fd1f1653544daecc5491b8cd0c6f63a0"
+    },
+    {
+      "file": "marketing/marketing-developer-community-builder.md",
+      "name": "Developer Community Builder",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-developer-community-builder.md",
+      "sha256": "dfb4bb64b9f6689c676d725daccfbeea11c05b3931ba7107de7459d20227f294"
+    },
+    {
+      "file": "marketing/marketing-email-strategist.md",
+      "name": "Email Marketing Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-email-strategist.md",
+      "sha256": "c0c996069e275f74254335ffd9d8bfa6154921b3c4bb4c74f96625e3ba7fcacd"
+    },
+    {
+      "file": "marketing/marketing-global-podcast-strategist.md",
+      "name": "Global Podcast Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-global-podcast-strategist.md",
+      "sha256": "f632e6ba651b61aa013f0946fe8e7798074ed837b4d928d5dd3b0bee7b9764b5"
+    },
+    {
+      "file": "marketing/marketing-growth-hacker.md",
+      "name": "Growth Hacker",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-growth-hacker.md",
+      "sha256": "19c0b8637f943e2887aa650927d5bd2ad272595be14bd6c85e9e0a84b6731451"
+    },
+    {
+      "file": "marketing/marketing-instagram-curator.md",
+      "name": "Instagram Curator",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-instagram-curator.md",
+      "sha256": "8abfdb7b473e72aa0c956f729c9f181d8a8827f5f03848d7ecd23adcc9cc139b"
+    },
+    {
+      "file": "marketing/marketing-linkedin-content-creator.md",
+      "name": "LinkedIn Content Creator",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-linkedin-content-creator.md",
+      "sha256": "ef0ac5482fa1e0fc152e3004ce407ba6ebcaa5ea6a2ba84b3059823c4842cf97"
+    },
+    {
+      "file": "marketing/marketing-livestream-commerce-coach.md",
+      "name": "Livestream Commerce Coach",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-livestream-commerce-coach.md",
+      "sha256": "cc6c7fc71385b4699a0f35b4eda4eb79500a0c6ac5629935a6704677379d8d84"
+    },
+    {
+      "file": "marketing/marketing-multi-platform-publisher.md",
+      "name": "Multi-Platform Publisher",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-multi-platform-publisher.md",
+      "sha256": "cf8859756ba983c928c977bb7904fb3114c8ad4286c879bfe89f008afa99acc4"
+    },
+    {
+      "file": "marketing/marketing-podcast-strategist.md",
+      "name": "Podcast Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-podcast-strategist.md",
+      "sha256": "af0cd4d706c75d641f8ecefb7600b3f0249a6a7372ffaff1b8a05d4a6f0da85c"
+    },
+    {
+      "file": "marketing/marketing-pr-communications-manager.md",
+      "name": "PR & Communications Manager",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-pr-communications-manager.md",
+      "sha256": "482a3c1530ff554712cfe84619669161c0fcb89cd76677eeca562a4d113fd067"
+    },
+    {
+      "file": "marketing/marketing-reddit-community-builder.md",
+      "name": "Reddit Community Builder",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-reddit-community-builder.md",
+      "sha256": "fc2494b901cf6517a9248880e30a121cc6652c62791177e5e37993d89491e19c"
+    },
+    {
+      "file": "marketing/marketing-seo-specialist.md",
+      "name": "SEO Specialist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-seo-specialist.md",
+      "sha256": "e9053dac62bd9e6abebb7f4465752dcb59a3e74eb5feeffa629cbc4f0999493e"
+    },
+    {
+      "file": "marketing/marketing-short-video-editing-coach.md",
+      "name": "Short-Video Editing Coach",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-short-video-editing-coach.md",
+      "sha256": "5f9f767484705cadb87aee77a86af8f6e00089d6c04bf2c12bab346abc6a66ad"
+    },
+    {
+      "file": "marketing/marketing-social-media-strategist.md",
+      "name": "Social Media Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-social-media-strategist.md",
+      "sha256": "b803c570b97887b1344405cc7bf63caf71577f07c229b9b43b75e7b3800e849c"
+    },
+    {
+      "file": "marketing/marketing-tiktok-strategist.md",
+      "name": "TikTok Strategist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-tiktok-strategist.md",
+      "sha256": "ece8ad12c0507ad611d1acca4d7c1dcf6f9812ebf37dcdffa4fd6547f370dfb3"
+    },
+    {
+      "file": "marketing/marketing-twitter-engager.md",
+      "name": "Twitter Engager",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-twitter-engager.md",
+      "sha256": "b869405d50d0bc600aa51040116e6547ebfea051d21d29eecbefb0940c09657d"
+    },
+    {
+      "file": "marketing/marketing-video-optimization-specialist.md",
+      "name": "Video Optimization Specialist",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-video-optimization-specialist.md",
+      "sha256": "8b4ff0d779f40e2073347b3678301005014d0fe190192d401ca3ca3c347fc0f0"
+    },
+    {
+      "file": "marketing/marketing-x-twitter-intelligence-analyst.md",
+      "name": "X/Twitter Intelligence Analyst",
+      "division": "marketing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/marketing/marketing-x-twitter-intelligence-analyst.md",
+      "sha256": "1c9c5646faf9b8554a9e1207e2baba2e64571a0053107ad9860cf42d2ea044aa"
+    },
+    {
+      "file": "paid-media/paid-media-auditor.md",
+      "name": "Paid Media Auditor",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-auditor.md",
+      "sha256": "db917178a694a602a27a122842f13f588cd99d3fdb3036961c099365a1b8f624"
+    },
+    {
+      "file": "paid-media/paid-media-creative-strategist.md",
+      "name": "Ad Creative Strategist",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-creative-strategist.md",
+      "sha256": "2b000993ee683f83ab6ea1dd2db92a6153acefd0dc6e8117baeb3e80d477eee7"
+    },
+    {
+      "file": "paid-media/paid-media-paid-social-strategist.md",
+      "name": "Paid Social Strategist",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-paid-social-strategist.md",
+      "sha256": "dda3d198fac635fd58f0b6cb891f7a99ca924c5f6c092717e4a4d27edad470ba"
+    },
+    {
+      "file": "paid-media/paid-media-ppc-strategist.md",
+      "name": "PPC Campaign Strategist",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-ppc-strategist.md",
+      "sha256": "12d34eb3d91a76531bb6e9d0ef777505d45e720fb81aeac01b435632436e3cd1"
+    },
+    {
+      "file": "paid-media/paid-media-programmatic-buyer.md",
+      "name": "Programmatic & Display Buyer",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-programmatic-buyer.md",
+      "sha256": "a95015e76c49f17456970706b57c63b456f32781b82b510a8531ab3de0e5f983"
+    },
+    {
+      "file": "paid-media/paid-media-search-query-analyst.md",
+      "name": "Search Query Analyst",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-search-query-analyst.md",
+      "sha256": "0c0c909b4e7ab5ac9e312a11171e4e2a9afa0269e0e92f64dc5823cc4e49034e"
+    },
+    {
+      "file": "paid-media/paid-media-tracking-specialist.md",
+      "name": "Tracking & Measurement Specialist",
+      "division": "paid-media",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/paid-media/paid-media-tracking-specialist.md",
+      "sha256": "add01ce10a04de2cdc75a8ed37e35dc9333ce58e3a8416e9c767b9b77b5c818a"
+    },
+    {
+      "file": "product/product-dx-engineer.md",
+      "name": "DX Engineer",
+      "division": "product",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-dx-engineer.md",
+      "sha256": "1178622c7bc246f03f08263db9a0735bfc1618854622fcd6c70cdd037becd824"
+    },
+    {
+      "file": "product/product-feedback-synthesizer.md",
+      "name": "Feedback Synthesizer",
+      "division": "product",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-feedback-synthesizer.md",
+      "sha256": "cc7b40650fdab3a634df2474a63d3767b80f64fae5f5a6524c44db607076b5fd"
+    },
+    {
+      "file": "product/product-manager.md",
+      "name": "Product Manager",
+      "division": "product",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-manager.md",
+      "sha256": "9e7403a0659e4ddc101443ddd47a81445b1de5e0a509ee6c805197af3ee5255e"
+    },
+    {
+      "file": "product/product-sprint-prioritizer.md",
+      "name": "Sprint Prioritizer",
+      "division": "product",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-sprint-prioritizer.md",
+      "sha256": "f51684a279035cadbd3d80c7ea37e151528297882e95a0480d6aa97bd431d8f3"
+    },
+    {
+      "file": "product/product-trend-researcher.md",
+      "name": "Trend Researcher",
+      "division": "product",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/product/product-trend-researcher.md",
+      "sha256": "1b131be4b29247b07c02e7c1eeb73258c6e01854ea51fb4dc98e970369847249"
+    },
+    {
+      "file": "project-management/project-management-experiment-tracker.md",
+      "name": "Experiment Tracker",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-experiment-tracker.md",
+      "sha256": "b846a3fffff52cfe98bcc89913889c9b18c557a83602570e39c0e23418ffd2cb"
+    },
+    {
+      "file": "project-management/project-management-meeting-notes-specialist.md",
+      "name": "Meeting Notes Specialist",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-meeting-notes-specialist.md",
+      "sha256": "9cbe117ba7545126ea32bdd1b5fcf76c5a1daebe10faf8fcddc3b422f26a464e"
+    },
+    {
+      "file": "project-management/project-management-project-shepherd.md",
+      "name": "Project Shepherd",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-project-shepherd.md",
+      "sha256": "65f112d58012f89b5c3b339196e737f0dab06475b02ba05a31486ec1bd1d2723"
+    },
+    {
+      "file": "project-management/project-management-studio-operations.md",
+      "name": "Studio Operations",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-studio-operations.md",
+      "sha256": "b07db2b41beb6c6f699919ad5b7f68f0aa29822ee08724ee52f71113f5cb69eb"
+    },
+    {
+      "file": "project-management/project-management-studio-producer.md",
+      "name": "Studio Producer",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-management-studio-producer.md",
+      "sha256": "9eac61504265e8a96cd3c9ffcf7e297fad0eb30c0ed0e15e3c50f03038fb52c9"
+    },
+    {
+      "file": "research/research-synthesist.md",
+      "name": "Research Synthesist",
+      "division": "research",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/research/research-synthesist.md",
+      "sha256": "ab738d7a63beb8f4be55df381e49c1ceac8efa14ad3874313128cbda22392bbb"
+    },
+    {
+      "file": "sales/sales-account-strategist.md",
+      "name": "Account Strategist",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-account-strategist.md",
+      "sha256": "c95e2c04586b054f25b36697e2cbe96b9e9617215bcdf977b0049d77389d98ce"
+    },
+    {
+      "file": "sales/sales-coach.md",
+      "name": "Sales Coach",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-coach.md",
+      "sha256": "33cf45fcd99e1574d9db86ca951dd49bdc4219451357ae580f6eb0eb2c99b2f3"
+    },
+    {
+      "file": "sales/sales-deal-strategist.md",
+      "name": "Deal Strategist",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-deal-strategist.md",
+      "sha256": "918625d2cc50ae2fa2c02ebdf834b69156d02f7aeb4b994377980e09cf12f797"
+    },
+    {
+      "file": "sales/sales-discovery-coach.md",
+      "name": "Discovery Coach",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-discovery-coach.md",
+      "sha256": "a0a84ba872da221aeaa5805b1a578b5b70e8ad839d3237b837710bf1340c6a5f"
+    },
+    {
+      "file": "sales/sales-engineer.md",
+      "name": "Sales Engineer",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-engineer.md",
+      "sha256": "befe031ff32cc2f04049f9bef7ccd434d5173c7742c343396161ddef6cc1d09a"
+    },
+    {
+      "file": "sales/sales-offer-lead-gen-strategist.md",
+      "name": "Offer & Lead Gen Strategist",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-offer-lead-gen-strategist.md",
+      "sha256": "f1a2773173b45bf82d37fb336f14ec6f3b78a25dc090f73f74c93b2b2f1b1b1c"
+    },
+    {
+      "file": "sales/sales-outbound-strategist.md",
+      "name": "Outbound Strategist",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-outbound-strategist.md",
+      "sha256": "72a9732bb24d29dfbc2cf523b7a3761c72ec8c703370c3cbe708690a1e5514b8"
+    },
+    {
+      "file": "sales/sales-pipeline-analyst.md",
+      "name": "Pipeline Analyst",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-pipeline-analyst.md",
+      "sha256": "71ce94999e1270f9124bec63cd37a4aa27dad0a067b9256458cf6f74719e549b"
+    },
+    {
+      "file": "sales/sales-proposal-strategist.md",
+      "name": "Proposal Strategist",
+      "division": "sales",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/sales/sales-proposal-strategist.md",
+      "sha256": "29e6572b52e5da9be577a8097fc4974f52f701d7e7a30d75cc8a97ccbd22db16"
+    },
+    {
+      "file": "security/security-ai-generated-code-auditor.md",
+      "name": "AI-Generated Code Security Auditor",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-ai-generated-code-auditor.md",
+      "sha256": "5e1f7250b203c94298f935899932fbc44f86a13d0f75e747c8feb1137e3e1717"
+    },
+    {
+      "file": "security/security-appsec-engineer.md",
+      "name": "Application Security Engineer",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-appsec-engineer.md",
+      "sha256": "be0fdf002b726f95bbf348f297a124bf15d2d0963ff4afbe18a5a6808e376754"
+    },
+    {
+      "file": "security/security-architect.md",
+      "name": "Security Architect",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-architect.md",
+      "sha256": "9289bc1ae0f8aa6d7813e4b6006af44e69c5cc19ab1a9bfc50c49aa3280ec645"
+    },
+    {
+      "file": "security/security-cloud-security-architect.md",
+      "name": "Cloud Security Architect",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-cloud-security-architect.md",
+      "sha256": "e8aa475b609477fc4dec6f32803edbe4462a9ef52d138224db9b5b3387fe0f5f"
+    },
+    {
+      "file": "security/security-compliance-auditor.md",
+      "name": "Compliance Auditor",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-compliance-auditor.md",
+      "sha256": "e6a7a417cc8fcf5e161b717bebc13433a2c74cb040a6e8a28850c917b6ac4226"
+    },
+    {
+      "file": "security/security-incident-responder.md",
+      "name": "Incident Responder",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-incident-responder.md",
+      "sha256": "756e63589dc70f1e97112732a3227bbcd2dc1622a448ed117abc7abb35bea550"
+    },
+    {
+      "file": "security/security-penetration-tester.md",
+      "name": "Penetration Tester",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-penetration-tester.md",
+      "sha256": "09d9039662c0ae7fd52bfc31c6a02bd1a8fc0ab952c4394b296d9571d09933c5"
+    },
+    {
+      "file": "security/security-secrets-credential-engineer.md",
+      "name": "Secrets & Credential Hygiene Engineer",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-secrets-credential-engineer.md",
+      "sha256": "82abd229aa56a3246f608fd15622cce3743facac3ff7ab4784cfb7af20a88a81"
+    },
+    {
+      "file": "security/security-senior-secops.md",
+      "name": "Senior SecOps Engineer",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-senior-secops.md",
+      "sha256": "b6c09da14326ba1699491704af106daa0bceb33f0c36363140a1c196f6f63dc1"
+    },
+    {
+      "file": "security/security-threat-detection-engineer.md",
+      "name": "Threat Detection Engineer",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-threat-detection-engineer.md",
+      "sha256": "ecdbfe9e91f162b8f94617312ecfc41a50c46814e71c45e9a96959786967b35f"
+    },
+    {
+      "file": "security/security-threat-intelligence-analyst.md",
+      "name": "Threat Intelligence Analyst",
+      "division": "security",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/security/security-threat-intelligence-analyst.md",
+      "sha256": "ffc7804093d6c9e75cd46ee7867bb9dfb873bb717aa04cce5cac411a1e8cb999"
+    },
+    {
+      "file": "support/support-analytics-reporter.md",
+      "name": "Analytics Reporter",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-analytics-reporter.md",
+      "sha256": "3beee6782feafd530a8361c769586f13919579326f1f5a48ca30e1affbf973bc"
+    },
+    {
+      "file": "support/support-executive-summary-generator.md",
+      "name": "Executive Summary Generator",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-executive-summary-generator.md",
+      "sha256": "860e5e756a1aab59c04773273a6272410250568025275a54a343e12a5a73ace8"
+    },
+    {
+      "file": "support/support-finance-tracker.md",
+      "name": "Finance Tracker",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-finance-tracker.md",
+      "sha256": "f6f60dc6a93e25e4e4268812308003e6f182ee5f02579596829b77583981704f"
+    },
+    {
+      "file": "support/support-infrastructure-maintainer.md",
+      "name": "Infrastructure Maintainer",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-infrastructure-maintainer.md",
+      "sha256": "0c1d8bd50e00ae7895979a7262cd451359f466d947e0e83577d3391c024cc74f"
+    },
+    {
+      "file": "support/support-legal-compliance-checker.md",
+      "name": "Legal Compliance Checker",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-legal-compliance-checker.md",
+      "sha256": "ce321c87a0a0c96aabffc604453a90a06afc15f610b95f876d42a65a80a4e41c"
+    },
+    {
+      "file": "support/support-support-responder.md",
+      "name": "Support Responder",
+      "division": "support",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/support/support-support-responder.md",
+      "sha256": "9bf8ad0334557f60952e19ea8c0ddd944fea1981e2982828db2c7fa0dc0184d5"
+    },
+    {
+      "file": "testing/testing-accessibility-auditor.md",
+      "name": "Accessibility Auditor",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-accessibility-auditor.md",
+      "sha256": "45eedb8a8f162f8cfed8ee64c64f7367959e7b74c1e917e8495f951b19113d35"
+    },
+    {
+      "file": "testing/testing-api-tester.md",
+      "name": "API Tester",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-api-tester.md",
+      "sha256": "1311597784746421429e343f2a4bfe3145d2ffe23677eb7961c8c032f693293c"
+    },
+    {
+      "file": "testing/testing-evidence-collector.md",
+      "name": "Evidence Collector",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-evidence-collector.md",
+      "sha256": "84f983ab23c1e6742501e3171cd1a7e17222d8c125386a337d88bf328a9028fe"
+    },
+    {
+      "file": "testing/testing-performance-benchmarker.md",
+      "name": "Performance Benchmarker",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-performance-benchmarker.md",
+      "sha256": "b22c4043bf434b1fda7b2fb53177d66b1c6a900014551982bde1ba8423a57901"
+    },
+    {
+      "file": "testing/testing-reality-checker.md",
+      "name": "Reality Checker",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-reality-checker.md",
+      "sha256": "46e7ae8071c165e0d601f61acdadb5431ed9f2aafdfb407504b3f35d5af99281"
+    },
+    {
+      "file": "testing/testing-test-automation-engineer.md",
+      "name": "Test Automation Engineer",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-test-automation-engineer.md",
+      "sha256": "b73ba115324afb4f95a865837e73435e8963198b54433c86dbde73c2162df82d"
+    },
+    {
+      "file": "testing/testing-test-results-analyzer.md",
+      "name": "Test Results Analyzer",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-test-results-analyzer.md",
+      "sha256": "3e239317ece385f1d3f993becc8bcccf0520636445d206815444e234b48d2339"
+    },
+    {
+      "file": "testing/testing-tool-evaluator.md",
+      "name": "Tool Evaluator",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-tool-evaluator.md",
+      "sha256": "ddd7745e466a11aebc25434d348766ffda00f464043dcff5ae40f01fdcdc0494"
+    },
+    {
+      "file": "testing/testing-workflow-optimizer.md",
+      "name": "Workflow Optimizer",
+      "division": "testing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/testing/testing-workflow-optimizer.md",
+      "sha256": "cb8b051ef6c84ffc53a569d1fc4443441cd62a210fbebb047a5e036ee92da19e"
+    },
+    {
+      "file": "specialized/accounts-payable-agent.md",
+      "name": "Accounts Payable Agent",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/accounts-payable-agent.md",
+      "sha256": "7d3baebd25e9313253019151846efc27a1d2cb631b2c62d6e07e179191140cfe"
+    },
+    {
+      "file": "specialized/automation-governance-architect.md",
+      "name": "Automation Governance Architect",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/automation-governance-architect.md",
+      "sha256": "5f34a7093117cba984af43effa497356c7575bb516bde0d79c608d44c0f8bcbd"
+    },
+    {
+      "file": "specialized/business-strategist.md",
+      "name": "Business Strategist",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/business-strategist.md",
+      "sha256": "988d4aea44bb3793c9704cdf50ee0df70a1285e31710528a632006e6b9734268"
+    },
+    {
+      "file": "specialized/change-management-consultant.md",
+      "name": "Change Management Consultant",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/change-management-consultant.md",
+      "sha256": "3de5f81d83b9c14661f374313e3f78811a331cfa8d5ba1e51e52217fb9b6e7f3"
+    },
+    {
+      "file": "specialized/chief-financial-officer.md",
+      "name": "Chief Financial Officer",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/chief-financial-officer.md",
+      "sha256": "53c89f2ac0a62bb11638d706186e4bf9bf22fb64fd5e50230b546f19a4f6da4c"
+    },
+    {
+      "file": "specialized/corporate-training-designer.md",
+      "name": "Corporate Training Designer",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/corporate-training-designer.md",
+      "sha256": "3056cf2d0e953f633421a11aa60d40f73646da15c2dc16b738e68b8c3a55a3c0"
+    },
+    {
+      "file": "specialized/customer-service.md",
+      "name": "Customer Service",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/customer-service.md",
+      "sha256": "a7ea8080753b04bfc5bdf81fbf7e62e803349d8bbb9b6536e6f1e0b5b061cb1b"
+    },
+    {
+      "file": "specialized/customer-success-manager.md",
+      "name": "Customer Success Manager",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/customer-success-manager.md",
+      "sha256": "c8ad6b4b1cc7a988f5c4430b65bcfa467af3ed7766fb0093cfc664331659182e"
+    },
+    {
+      "file": "specialized/data-consolidation-agent.md",
+      "name": "Data Consolidation Agent",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/data-consolidation-agent.md",
+      "sha256": "50b2c5d5375ee6d73262e669d7683c39619c2cfe6f8ef1223a3daf8ce3b1f480"
+    },
+    {
+      "file": "specialized/data-privacy-officer.md",
+      "name": "Data Privacy Officer",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/data-privacy-officer.md",
+      "sha256": "29db93bb299e6d241129bc7d2ec7cc7fc11b9813cec651c93066198bc0952d5d"
+    },
+    {
+      "file": "specialized/language-translator.md",
+      "name": "Language Translator",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/language-translator.md",
+      "sha256": "474d38c22caa238d6bf6e237b66b2d55cf3a4c405dc670fc07017e67eaa7f328"
+    },
+    {
+      "file": "specialized/legal-document-review.md",
+      "name": "Legal Document Review",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/legal-document-review.md",
+      "sha256": "d803b7c419aa15c1da3d47a66310d80570ef1cefc6e130677a1728fe80e4b67c"
+    },
+    {
+      "file": "specialized/operations-manager.md",
+      "name": "Operations Manager",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/operations-manager.md",
+      "sha256": "2e67ec29396024dc78dcd424e902067ebf0302fdd33a66b4c77cc04aae56be47"
+    },
+    {
+      "file": "specialized/report-distribution-agent.md",
+      "name": "Report Distribution Agent",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/report-distribution-agent.md",
+      "sha256": "283174a2623a38de808910852bc132c4918bd00f42b8909211e548569412dd5e"
+    },
+    {
+      "file": "specialized/retail-customer-returns.md",
+      "name": "Retail Customer Returns",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/retail-customer-returns.md",
+      "sha256": "48f806c2e93c81f78f87e06ea48cde58c6f85d84308c29074b296735f6136a7a"
+    },
+    {
+      "file": "specialized/sales-data-extraction-agent.md",
+      "name": "Sales Data Extraction Agent",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/sales-data-extraction-agent.md",
+      "sha256": "8f43dd4fa4d2551256633b1ce4ee5e0633957fc060941aa611b4e333b16c121c"
+    },
+    {
+      "file": "specialized/sales-outreach.md",
+      "name": "Sales Outreach",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/sales-outreach.md",
+      "sha256": "a1756ffb434f97777317a451d844152b3d80ca9b32c5190b287b984b574606b8"
+    },
+    {
+      "file": "specialized/specialized-chief-of-staff.md",
+      "name": "Chief of Staff",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-chief-of-staff.md",
+      "sha256": "864afc41df035f1708afba552c475bff29e8effa607659130149b68a8af6fb2b"
+    },
+    {
+      "file": "specialized/specialized-codebase-archaeologist.md",
+      "name": "Codebase Archaeologist",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-codebase-archaeologist.md",
+      "sha256": "f31d22f9b1399e73d7bacc349c60f3a8b31e5907e5a2d5591d7a7a5c4561e269"
+    },
+    {
+      "file": "specialized/specialized-cultural-intelligence-strategist.md",
+      "name": "Cultural Intelligence Strategist",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-cultural-intelligence-strategist.md",
+      "sha256": "659c4ac30527ad992ba5aa4464d0e88b91f855d50b9eeecfcec1eae77bdc8a00"
+    },
+    {
+      "file": "specialized/specialized-document-generator.md",
+      "name": "Document Generator",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-document-generator.md",
+      "sha256": "78ae93a528d828bd9d1707935ec621719ddc494a228329daa64d3006b49c28e0"
+    },
+    {
+      "file": "specialized/specialized-master-plan-architect.md",
+      "name": "Master Plan Architect",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-master-plan-architect.md",
+      "sha256": "0a4c3ef0458614f462ea262be87c2470c94bcbe0ee2efd159a3dc3b03bd1cd55"
+    },
+    {
+      "file": "specialized/specialized-mcp-builder.md",
+      "name": "MCP Builder",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-mcp-builder.md",
+      "sha256": "28d4e300f081344cc7ab03eeaee0337281d28ec951834dc9783d13130248c4a4"
+    },
+    {
+      "file": "specialized/specialized-model-qa.md",
+      "name": "Model QA Specialist",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-model-qa.md",
+      "sha256": "6aa7b96a3c6d9cc872dda103a0145ebaa6d91f21abf42abe12624bba2568a65b"
+    },
+    {
+      "file": "specialized/specialized-pricing-analyst.md",
+      "name": "Pricing Analyst",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-pricing-analyst.md",
+      "sha256": "04912fd8851f233c5c15c1f8481db01bd6cea1288bb7c45f2544d5b5e60e1089"
+    },
+    {
+      "file": "specialized/specialized-workflow-architect.md",
+      "name": "Workflow Architect",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-workflow-architect.md",
+      "sha256": "2b485ff556acef58c19503044ce429a7632dae3743f00660153cd6ad27ffcd1a"
+    },
+    {
+      "file": "specialized/supply-chain-strategist.md",
+      "name": "Supply Chain Strategist",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/supply-chain-strategist.md",
+      "sha256": "3eb09846a61af1b033a9181405395cb0e0799d063bc3f8c3ac4947fbbd810708"
+    },
+    {
+      "file": "project-management/project-manager-senior.md",
+      "name": "Senior Project Manager",
+      "division": "project-management",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/project-management/project-manager-senior.md",
+      "sha256": "7036e46a228fd3e4fd81011bb1ed38a4fdd0229524532a3753ad565e08da0150"
+    },
+    {
+      "file": "academic/academic-statistician.md",
+      "name": "Statistician",
+      "division": "academic",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/academic/academic-statistician.md",
+      "sha256": "d0f0dcfb06961911ca4621c110c75c74a24c1833b945a74106bf899e4a970cb8"
+    },
+    {
+      "file": "game-development/blender-addon-engineer.md",
+      "name": "Blender Add-on Engineer",
+      "division": "game-development",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/blender-addon-engineer.md",
+      "sha256": "b9bbcbfcdc1f89f1f0f973b1cda57dedeaabb5afd192082be7ccfdc643bb8adc"
+    },
+    {
+      "file": "game-development/technical-artist.md",
+      "name": "Technical Artist",
+      "division": "game-development",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/game-development/technical-artist.md",
+      "sha256": "d5a590ed9bb7504012f45f256ad80450716c53a24602efa0e0d0d7fd2cd58079"
+    },
+    {
+      "file": "spatial-computing/xr-immersive-developer.md",
+      "name": "XR Immersive Developer",
+      "division": "spatial-computing",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/spatial-computing/xr-immersive-developer.md",
+      "sha256": "6ec1051f4539778284625658a5125ea56572dba44dafb318ded6ecf440b0f46f"
+    },
+    {
+      "file": "specialized/specialized-civil-engineer.md",
+      "name": "Civil Engineer",
+      "division": "specialized",
+      "source": "https://github.com/msitarzewski/agency-agents/blob/main/specialized/specialized-civil-engineer.md",
+      "sha256": "17e31df5d2b868333030857403ded3107422a1f4abec8cd887b3c6eb4637f6bb"
+    }
+  ]
+}
