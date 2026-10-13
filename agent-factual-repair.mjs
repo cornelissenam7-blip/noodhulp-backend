@@ -24,7 +24,14 @@ export function repairFactualCopy(p,input){
   if(!next.intro&&offer)next.intro=offer;
   if(!next.headline&&offer)next.headline=offer;
  }
- if(input.task==='campaign')next.sections=next.sections.map(s=>/Advertentievoorstel|Ad proposal/i.test(s.heading)?{...s,text:clean(s.text)}:s);
+ if(input.task==='campaign')next.sections=next.sections.map(s=>{
+  if(!/Advertentievoorstel|Ad proposal/i.test(s.heading))return s;
+  const embellishment=[...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))||/\b(?:expertise|effici[eë]nt|op maat)\b/i.test(s.text)&&! /\b(?:expertise|effici[eë]nt|op maat)\b/i.test(facts);
+  if(!embellishment||!offer)return {...s,text:clean(s.text)};
+  const literalOffer=offer.split(/(?<=[.!?])\s+/)[0];
+  const audience=(fields['profile-audience']||'').trim();
+  return {...s,text:fields.language==='en'?`Proposed variant A: ${literalOffer} Request more information.\nProposed variant B: ${audience?audience+'. ':''}${literalOffer} Request more information.\nCompare an offer-first opening with an audience-first opening; no winner has been measured.`:`Voorstel variant A: ${literalOffer} Vraag meer informatie aan.\nVoorstel variant B: ${audience?audience+'. ':''}${literalOffer} Vraag meer informatie aan.\nVergelijk een opening met het aanbod met een opening voor de doelgroep; er is nog geen winnaar gemeten.`};
+ });
  // A repair can merge two formerly different ad headlines. Keep the rate untouched
  // and use a factual location/service opening rather than artificial synonyms.
  if(input.task==='ads'&&/varianten|variants/i.test(fields['agent-instructions']||'')&&next.ads.length>1){

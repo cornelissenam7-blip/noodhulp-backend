@@ -38,3 +38,8 @@ test('promotion images stay explicit proposals in both languages',()=>{
   assert.equal(fixed.posts[0].text,raw.posts[0].text);assert.deepEqual(preservePromotionDetails(fixed,{language}),fixed);
  }
 });
+test('generic mention of search terms is not a concrete campaign list',()=>{
+ const p={...base,sections:[{heading:'Kanaalkeuze',text:'Google Ads met gerichte zoektermen.'},{heading:'Evalueren',text:'Stop bij overschrijding budget.'}]};
+ const issues=checkConcreteClaims(p,{task:'campaign',fields:{'campaign-goal':'Geef zoektermen, uitsluitingen en stopcriteria.'}});
+ assert.ok(issues.some(s=>/Zoektermen:/.test(s)));assert.ok(issues.some(s=>/Uitsluitingen:/.test(s)));
+});

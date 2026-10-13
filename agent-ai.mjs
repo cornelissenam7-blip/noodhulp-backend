@@ -57,9 +57,10 @@ export function checkConcreteClaims(p,input){
  if(input.task==='ads'&&/varianten|variants/i.test(input.fields['agent-instructions']||'')&&p.ads.length>1&&new Set(p.ads.map(a=>(a.headline+' '+a.text).toLowerCase().replace(/\s+/g,' ').trim())).size===1)issues.push('De gevraagde testvarianten zijn identiek. Varieer minstens de kop rond hetzelfde bevestigde aanbod, zonder nieuwe voordelen of prijsvoorwaarden.');
  if(input.task==='campaign'&&!/confirmed testimonials|geverifieerde klantreviews/i.test(source)&&p.sections.some(s=>/testimonials|klantreviews|customer reviews/i.test(s.text)))issues.push('Gebruik geen klantreviews of testimonials zonder expliciet aangeleverd, geverifieerd materiaal. Stel een productdemonstratie voor.');
  if(input.task==='campaign'){
-  const requested=affirmative(input.fields['agent-instructions']||''),plan=p.sections.map(s=>s.text).join(' ');
-  if(/zoektermen|zoekwoorden|search terms|keywords/i.test(requested)&&! /zoekterm|zoekwoord|search term|keyword/i.test(plan))issues.push('Werk de gevraagde zoektermen concreet uit in channel. Label ze als voorstellen, zonder zoekvolumes te verzinnen.');
-  if(/uitsluiting|uitsluitingen|negative keywords/i.test(requested)&&! /uitsluit|negatiev|negative keyword|exclude/i.test(plan))issues.push('Werk de gevraagde uitsluitingen concreet uit in channel.');
+  const requested=affirmative(input.fields['campaign-goal']||input.fields['agent-instructions']||''),plan=p.sections.map(s=>s.text).join(' ');
+  const channel=p.sections.find(s=>/Kanaalkeuze|Channel selection/i.test(s.heading))?.text||'';
+  if(/zoektermen|zoekwoorden|search terms|keywords/i.test(requested)&&! /(?:zoektermen|zoekwoorden|search terms|keywords)\s*[:=]\s*\S/i.test(channel))issues.push('Werk de gevraagde zoektermen concreet uit in channel als Zoektermen: gevolgd door voorgestelde termen, zonder zoekvolumes te verzinnen.');
+  if(/uitsluiting|uitsluitingen|negative keywords/i.test(requested)&&! /(?:uitsluitingen|uitsluiten|negatieve zoekwoorden|negative keywords|exclusions)\s*[:=]\s*\S/i.test(channel))issues.push('Werk de gevraagde uitsluitingen concreet uit in channel als Uitsluitingen: gevolgd door voorgestelde uitsluitingen.');
   if(/stopcriteria|stopcriteri|stop criteria/i.test(requested)&&! /stop|pauze|pause|suspend|onderbreek/i.test(plan))issues.push('Voeg het gevraagde stopcriterium toe in evaluation, bijvoorbeeld pauzeren bij ontbrekende tracking of overschrijding van het bestaande budget.');
  }
  // Campaign allocation is advice; preserve its supplied budget separately below.
