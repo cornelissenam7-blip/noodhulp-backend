@@ -1,0 +1,1 @@
+document.querySelector('#close').addEventListener('click',()=>{window.close();document.querySelector('#status').textContent='Je kunt dit tabblad sluiten en in Amcinova op Pagina’s ophalen klikken.';});

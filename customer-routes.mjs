@@ -1,4 +1,5 @@
 import {registerTrackingCustomer} from './tracking-links.mjs';
+import {registerMetaCustomer} from './meta-customer.mjs';
 import {adminTestPayment} from './admin-test-payment.mjs';
 import {startCartPayment,verifyCartPayment} from './cart-test-payment.mjs';
 import {customerCatalog,customerBundles,validateSelection} from './customer-catalog.mjs';
@@ -61,6 +62,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
   if(a.source==='purchase'){const p=await db(u,'amcinova_customer_purchases','?user_id=eq.'+u.id+'&id=eq.'+a.purchase_id+'&product_code=eq.'+product+'&status=eq.paid&select=id,verified_at');if(!p[0]?.verified_at)throw fault(403,'Voor dit product is geen bevestigde aankoop gevonden.');}
  }
  registerTrackingCustomer(app,{json,env,adminDb,identity,db,requireProduct,wrap,adminAccess});
+ registerMetaCustomer(app,{json,env,adminDb,identity,requireProduct,wrap,fetchImpl});
  async function testBillingUser(req){
   const u=await identity(req);if(!testBillingAllowed(env,u)||!adminDb||!testPayments?.ready)throw fault(503,'Deze proefroute is nog niet geactiveerd.');return u;
  }
