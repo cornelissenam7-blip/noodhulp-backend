@@ -4,6 +4,7 @@ import {registerKrnnContentReport} from "./krnn-content-report.mjs";
 import "dotenv/config";
 import {registerTrackingPublic} from "./tracking-links.mjs";
 import {registerMetaDmRoutes} from "./meta-dm-routes.mjs";
+import {startMetaDmRetention} from "./meta-dm-retention.mjs";
 import express from "express";
 import { registerQuoteRoutes } from "./quote-routes.mjs";
 import cors from "cors";
@@ -314,6 +315,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 registerMetaDmRoutes(app,{raw:express.raw,env:process.env,adminDb:supabaseRequest});
+startMetaDmRetention({env:process.env,adminDb:supabaseRequest});
 registerTrackingPublic(app,{json:express.json,env:process.env,adminDb:supabaseRequest});
 const allowedOrigins = CORS_ORIGIN === "*"
   ? "*"
