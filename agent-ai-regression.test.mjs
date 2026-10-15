@@ -14,6 +14,14 @@ assert.deepEqual(p.ads,[]);assert.equal(p.sections.length,7);assert.equal(p.sect
 await assert.rejects(generateAgent({task:'campaign',fields:{}},{env:{OPENAI_API_KEY:'test'},fetchImpl:async()=>response(result)}),/campagneplan/);
 });
 test('website cannot leak irrelevant ads',async()=>{const p=await generateAgent({task:'site',fields:{}},{env:{OPENAI_API_KEY:'test'},fetchImpl:async()=>response({...result,ads:[{...result.ads[0],headline:'x'.repeat(60)}]})});assert.deepEqual(p.ads,[]);});
+test('social posts can use complete captions while Google keeps its short schema',async()=>{
+ const offer='Wij vervangen keukenfronten en grepen. De bestaande keukenopstelling blijft behouden.';
+ const caption=offer+' '+offer;
+ const social={title:'Post',summary:'Concept',questions:[],ads:[{channel:'Facebook',headline:'Nieuwe fronten voor jouw bestaande keuken',text:caption,cta:'Bekijk mogelijkheden'}]};
+ const p=await generateAgent({task:'ads',fields:{'ad-format':'social-post','ad-channel':'Facebook,Instagram','ad-offer':offer}},{env:{OPENAI_API_KEY:'test'},fetchImpl:async(url,args)=>{const b=JSON.parse(args.body);assert.equal(b.text.format.schema.properties.ads.items.properties.text.maxLength,2200);assert.match(b.instructions,/socialmediaposts/);return response(social);}});
+ assert.ok(p.ads[0].text.length>90);
+ await generateAgent({task:'ads',fields:{'ad-format':'social-post','ad-channel':'google','ad-offer':offer}},{env:{OPENAI_API_KEY:'test'},fetchImpl:async(url,args)=>{const b=JSON.parse(args.body);assert.equal(b.text.format.schema.properties.ads.items.properties.text.maxLength,90);return response({title:'Ad',summary:'Concept',questions:[],ads:[{channel:'Google',headline:'Keukenfronten vervangen',text:'Wij vervangen keukenfronten en grepen.',cta:'Bekijk mogelijkheden'}]});}});
+});
 test('UTM-only measurement is repaired before presenting a campaign',async()=>{
  let calls=0;const p=await generateAgent({task:'campaign',fields:{}},{env:{OPENAI_API_KEY:'test'},fetchImpl:async()=>{calls++;return response(calls===1?{...campaignResult,plan:{...campaignResult.plan,measurement:'Installeer UTM-tags voor conversies en controleer de tracking.'}}:campaignResult);}});
  assert.equal(calls,2);assert.match(p.sections.find(s=>s.heading==='Meten').text,/gebeurtenis/);
