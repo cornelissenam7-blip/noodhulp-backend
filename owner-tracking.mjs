@@ -27,6 +27,8 @@ export function registerOwnerTracking(app,{json,env,authorize,handle,fetchImpl})
   if(!response.ok)throw Object.assign(Error('Campagneresultaten tijdelijk niet beschikbaar.'),{status:503});
   const events=await response.json();
   if(!Array.isArray(events))throw Object.assign(Error('Ongeldige resultatenrespons.'),{status:503});
-  res.json({ok:true,limited:events.length===1000,links:trackingReport(links.map(tracking=>({payload:{tracking}})),events).map(link=>({...link,trackingUrl:trackingURL(link,signTracking(link,ownerTrackingId,env))}))});
+  const ids=new Set(links.map(link=>link.id));
+  const testRegistrations=events.filter(event=>ids.has(event.metadata?.tracking?.id)&&event.metadata?.tracking?.test===true).length;
+  res.json({ok:true,limited:events.length===1000,testRegistrations,links:trackingReport(links.map(tracking=>({payload:{tracking}})),events).map(link=>({...link,trackingUrl:trackingURL(link,signTracking(link,ownerTrackingId,env))}))});
  }));
 }

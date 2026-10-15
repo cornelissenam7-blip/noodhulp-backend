@@ -25,6 +25,7 @@ test('owner report queries only owner data, deduplicates leads, and does not tre
  const s=setup([{event_id:'first',event_type:'lead',metadata},{event_id:'second',event_type:'lead',metadata},{event_id:'test',event_type:'lead',metadata:{tracking:{...metadata.tracking,test:true,reference:'test-123'}}}]);
  const result=await s.invoke('report',{links:[{...link,budget:500}]});
  assert.equal(result.links[0].leads,1);assert.equal(result.links[0].costPerLeadCents,null);
+ assert.equal(result.testRegistrations,1);
  assert.equal(s.calls[0].url.searchParams.get('metadata->tracking->>owner'),'eq.'+ownerTrackingId);
  assert.equal(s.calls[0].options.headers.Authorization,'Bearer test-service');
 });
