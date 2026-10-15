@@ -1,4 +1,5 @@
 import {agentExpertise} from './agency-expertise.mjs';
+import {registerOwnerTracking} from './owner-tracking.mjs';
 import {repairFactualCopy} from './agent-factual-repair.mjs';
 import {localizePublicResult,publicOutputText} from './public-output-language.mjs';
 import {researchProductBrand} from './product-brand.mjs';
@@ -178,6 +179,7 @@ export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   if(grant.aud!=='amcinova-agents'||!Number.isFinite(grant.exp)||grant.exp<=now())throw fail(401,'Je toegang is verlopen. Verbind opnieuw via Beheer.');
  };
  // The hosting library uses the same existing admin grant; it never receives an admin password.
+ registerOwnerTracking(app,{json,env,authorize,handle,fetchImpl});
  app.get(prefix+'/library-access',handle(async(req,res)=>{authorize(req);res.json({ok:true,workspace:'amcinova-admin'});}));
  app.post(prefix+'/generate',json({limit:'32kb'}),handle(async(req,res)=>{
   authorize(req);
