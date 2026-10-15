@@ -1,0 +1,9 @@
+Register BEFORE express.json():
+import {registerMetaDmRoutes} from './meta-dm-routes.mjs';
+registerMetaDmRoutes(app,{raw:express.raw,env:process.env,adminDb:supabaseRequest});
+
+GET /api/integrations/meta/webhook verifies challenge with AMCINOVA_META_VERIFY_TOKEN (minimum 16 characters), independent of POST enablement.
+POST defaults OFF (503). Requires AMCINOVA_META_DM_ENABLED=true, AMCINOVA_META_APP_SECRET (minimum 16 characters), AMCINOVA_META_CONVERSATION_SECRET (minimum 32), AMCINOVA_META_ACCOUNTS JSON array of platform/facebook|instagram, accountId and tenantId (existing auth.users UUID), plus database migration.
+No credentials were generated, read or applied. Configure only through secure environment management. Callback host must be the actual deployed backend host; not inferred here.
+POST uses exact bounded raw bytes, SHA256 HMAC and fixed account allowlist. No automatic outgoing messages. Unknown post remains unknown; inbound message is not a verified lead. Raw message/sender content is never persisted or logged here. Only service-role database access; customer reports not provided by these routes. Define and implement a retention schedule before enabling receipt collection.
+Atomic duplicate prevention uses database unique constraint and PostgREST ignore-duplicates representation; null/ambiguous database response fails 503 for retries. Batch partial success is retry-safe through row uniqueness.
