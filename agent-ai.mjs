@@ -1,5 +1,6 @@
 import {agentExpertise} from './agency-expertise.mjs';
 import {registerOwnerTracking} from './owner-tracking.mjs';
+import {createAdVisual,adVisualInput} from './ad-visual.mjs';
 import {repairFactualCopy} from './agent-factual-repair.mjs';
 import {localizePublicResult,publicOutputText} from './public-output-language.mjs';
 import {researchProductBrand} from './product-brand.mjs';
@@ -181,6 +182,11 @@ export function registerAgentRoutes(app,{json,env=process.env,fetchImpl=fetch,no
  };
  // The hosting library uses the same existing admin grant; it never receives an admin password.
  registerOwnerTracking(app,{json,env,authorize,handle,fetchImpl});
+ app.post(prefix+'/visual',json({limit:'12kb'}),handle(async(req,res)=>{
+  authorize(req);adVisualInput(req.body);
+  if(now()-start>=3600000){start=now();count=0;}if(busy||count>=30)throw fail(429,'De agent is bezig of het uurlimiet is bereikt.');
+  busy=true;count++;try{res.json({ok:true,result:await createAdVisual(req.body,{env,fetchImpl})});}finally{busy=false;}
+ }));
  app.get(prefix+'/library-access',handle(async(req,res)=>{authorize(req);res.json({ok:true,workspace:'amcinova-admin'});}));
  app.post(prefix+'/generate',json({limit:'32kb'}),handle(async(req,res)=>{
   authorize(req);

@@ -1,6 +1,7 @@
 const fault=()=>Object.assign(Error('Dit voorstel hoort niet bij je product.'),{status:403});
 // The server decides the product; neither user_id nor a client product label grants access.
 export function customerAIScope(mode,body={}){
+ if(mode==='admaker-visual')return {product:'admaker',kind:'visual'};
  if(mode==='proposal'||mode==='drawing')return {product:'offertetool',kind:mode};
  const task=body.task,fields=body.fields||{},research=fields['research-mode']||'',support=fields['support-mode']||'';
  if(mode==='generate'){
