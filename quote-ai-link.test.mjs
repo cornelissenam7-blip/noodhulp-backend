@@ -26,3 +26,17 @@ test('new appliances stay new and existing fronts remain',async()=>{
  const result=await proposeQuote(body,{env:{OPENAI_API_KEY:'fake'},fetchImpl:async()=>reply(raw([{sourceId:null,catalogId:'item-0',quantity:1,heightMm:null,widthMm:null,detail:'Afzuigkap'}]))});
  assert.equal(result.lines.length,2);assert.equal(result.lines.find(l=>l.catalogId==='front').quantity,2);
 });
+test('user case cannot silently omit appliances or default a worktop to one metre',()=>{
+ const data=checkAIInput({...body,catalog:[...body.catalog,{id:'item-1',name:'Werkblad',unit:'m',price:300}]});
+ const p=checkAIProposal(raw([{...line,quantity:2},{sourceId:null,catalogId:'item-1',quantity:1,heightMm:null,widthMm:null,detail:''}]),data);
+ assert.ok(p.questions.some(q=>q.includes('7 fronten')));
+ assert.ok(p.questions.some(q=>q.includes('afzuigkap')));
+ assert.ok(p.questions.some(q=>q.includes('kookplaat')));
+ assert.ok(p.questions.some(q=>q.includes('lengte in meters')));
+ assert.equal(p.lines.find(l=>l.catalogId==='item-1').quantity,null);
+});
+test('explicit measured work remains usable',()=>{
+ const data=checkAIInput({...body,description:'Werkblad van 2,5 meter',existingLines:[],catalog:[{id:'item-1',name:'Werkblad',unit:'m',price:300}]});
+ const p=checkAIProposal(raw([{sourceId:null,catalogId:'item-1',quantity:2.5,heightMm:null,widthMm:null,detail:''}]),data);
+ assert.equal(p.lines[0].quantity,2.5);assert.deepEqual(p.questions,[]);
+});

@@ -35,6 +35,26 @@ export function checkAIProposal(raw,input){
  return{catalogId:c.id,quantity:l.quantity,heightMm:c.id==='front'?l.heightMm:null,widthMm:c.id==='front'?l.widthMm:null,detail:l.detail};});
  if(!lines.length)questions.push('Welke werkzaamheden en hoeveelheden moeten in de offerte komen?');
  if(lines.some(l=>l.catalogId==='hours')&&lines.some(l=>l.catalogId==='area'))questions.push('Wil je deze klus per uur of per mÂ² berekenen? Kies Ã©Ã©n werkwijze.');
+ // A fluent summary is not evidence that requested work was actually included.
+ const description=(input.description||'').toLowerCase();
+ const frontCount=description.match(/\b(\d+)\s+(?:keuken)?fronten\b/);
+ if(frontCount&&lines.filter(l=>l.catalogId==='front').reduce((n,l)=>n+(l.quantity||0),0)!==Number(frontCount[1]))
+  questions.push('Je vroeg om '+frontCount[1]+' fronten. Vul het aantal en de maten per maatgroep in; het voorstel heeft dit aantal nog niet correct verwerkt.');
+ const requested=[[/afzuigkap/,'afzuigkap'],[/inductie(?:kookplaat)?|kookplaat/,'kookplaat']];
+ for(const [pattern,name] of requested){
+  if(!pattern.test(description))continue;
+  const matched=lines.some(l=>{const c=input.catalog.find(c=>c.id===l.catalogId);return l.quantity>0&&pattern.test(((c?.name||'')+' '+l.detail).toLowerCase())});
+  if(!matched)questions.push('Kies de '+name+' als aparte apparaatregel met typenummer en prijs in de calculator.');
+ }
+ for(const l of lines){
+  const c=input.catalog.find(c=>c.id===l.catalogId);
+  if(!['m','m2','uur'].includes(c.unit)||c.id==='front'||(input.existingLines||[]).some(x=>x.catalogId===l.catalogId&&x.quantity>0))continue;
+  // New measured work must be supplied in text/form, not defaulted to one metre/hour.
+  const units=c.unit==='m'?'(?:m|meter|cm|centimeter|mm|millimeter)':c.unit==='m2'?'(?:m²|m2|vierkante meter)':'(?:uur|uren)';
+  if(!new RegExp('\\d+(?:[.,]\\d+)?\\s*'+units+'\\b','i').test(description)){
+   l.quantity=null;questions.push('Wat is de '+(c.unit==='uur'?'werktijd in uren':c.unit==='m'?'lengte in meters':'oppervlakte in m²')+' voor '+c.name+'?');
+  }
+ }
  const ids=lines.filter(l=>l.catalogId!=='front').map(l=>l.catalogId);if(new Set(ids).size!==ids.length)questions.push('Maak voor verschillende uitvoeringen aparte regels in de calculator en probeer opnieuw.');
  return{summary:raw.summary,questions:[...new Set(questions)],suggestions:[...new Set(suggestions)],lines};
 }
