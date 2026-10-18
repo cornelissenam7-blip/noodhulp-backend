@@ -13,7 +13,7 @@ test('quote payload retains authoritative project identity and front/handle rows
 test('Beheer tablet list requires admin and exposes metadata only',async()=>{
  const app=express();let calls=0;
  registerQuoteRoutes(app,{json:express.json,env:{ADMIN_KEY:'test-only',SUPABASE_URL:'https://test.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-only'},fetchImpl:async(url,options)=>{
-  calls++;assert.match(url,/amcinova_customer_documents\?product_code=eq.offertetool&select=id,user_id,project_id,revision,name,created_at&/);assert.ok(!url.includes('payload'));assert.equal(options.method,'GET');return {ok:true,status:200,json:async()=>[{id:owner,project_id:project,revision:3,name:'TEST'}]};
+  calls++;assert.match(url,/amcinova_customer_documents\?product_code=eq.offertetool&payload->numberReservation=is.null&select=id,user_id,project_id,revision,name,created_at&/);assert.ok(!url.includes('select=payload'));assert.equal(options.method,'GET');return {ok:true,status:200,json:async()=>[{id:owner,project_id:project,revision:3,name:'TEST'}]};
  }});
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
  try{const url='http://127.0.0.1:'+server.address().port+'/api/agent/quotes/customer';
