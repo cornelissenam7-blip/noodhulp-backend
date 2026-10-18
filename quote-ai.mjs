@@ -27,8 +27,15 @@ export function checkAIProposal(raw,input){
  if(old){used.add(old.sourceId);for(const k of ['quantity','heightMm','widthMm'])if(l[k]===null)l[k]=old[k];if(!l.detail)l.detail=old.detail;}
  return l;});
  for(const old of existing){if(!used.has(old.sourceId)&&!(['hours','area'].includes(old.catalogId)&&proposed.some(l=>['hours','area'].includes(l.catalogId))))proposed.push({...old});}
+ const worktopRequested=/\b(?:hoek)?werkblad(?:en)?\b/i.test(input.description)&&! /\b(?:geen|zonder)\s+(?:nieuw\s+)?werkblad/i.test(input.description);
+ const isWorktop=c=>/\b(?:hoek)?werkblad(?:en)?\b/i.test(c?.name||'');
+ if(worktopRequested&&!proposed.some(l=>isWorktop(input.catalog.find(c=>c.id===l.catalogId)))){
+  const c=input.catalog.find(c=>isWorktop(c)&&(/hoekwerkblad/i.test(input.description)?/hoek/i.test(c.name):! /hoek/i.test(c.name)))||input.catalog.find(isWorktop);
+  if(c)proposed.push({catalogId:c.id,quantity:null,heightMm:null,widthMm:null,detail:''});
+  else questions.push('Voeg een werkbladregel met jouw tarief toe aan de calculator.');
+ }
  const lines=proposed.map(l=>{const c=input.catalog.find(c=>c.id===l.catalogId);if(!c||typeof l.detail!=='string'||l.detail.length>240)throw fail(502,'Het voorstel bevat een onbekend onderdeel.');for(const k of ['quantity','heightMm','widthMm'])if(l[k]!==null&&(typeof l[k]!=='number'||!Number.isFinite(l[k])||l[k]<=0||l[k]>100000))throw fail(502,'Ongeldige maten of aantallen in het voorstel.');
- if(l.quantity===null)questions.push('Wat is het aantal of de hoeveelheid voor '+c.name+'?');
+ if(l.quantity===null)questions.push(isWorktop(c)&&c.unit==='m'?'Werkbladlengte nog invullen: wat is de lengte in meters voor '+c.name+'?':'Wat is het aantal of de hoeveelheid voor '+c.name+'?');
  if(c.unit==='stuk'&&l.quantity!==null&&!Number.isInteger(l.quantity))throw fail(502,'Een aantal stuks moet een geheel getal zijn.');
  if(c.id==='front'){if(l.quantity>10000)throw fail(502,'Te veel fronten.');for(const k of ['heightMm','widthMm']){if(l[k]===null)questions.push('Wat is de '+(k==='heightMm'?'hoogte':'breedte')+' van de fronten in millimeters?');else if(!Number.isInteger(l[k]))throw fail(502,'Frontmaten moeten hele millimeters zijn.');}}
  if(c.price===0)questions.push('Vul eerst jouw prijs voor '+c.name+' in de calculator in.');
@@ -54,6 +61,11 @@ export function checkAIProposal(raw,input){
   if(!new RegExp('\\d+(?:[.,]\\d+)?\\s*'+units+'\\b','i').test(description)){
    l.quantity=null;questions.push('Wat is de '+(c.unit==='uur'?'werktijd in uren':c.unit==='m'?'lengte in meters':'oppervlakte in m²')+' voor '+c.name+'?');
   }
+ }
+ if(worktopRequested||lines.some(l=>isWorktop(input.catalog.find(c=>c.id===l.catalogId)))){
+  suggestions.push('Spoelbak: bestaande hergebruiken of een nieuwe leveren? Controleer model, inbouwmethode en uitsparingsmaten.');
+  suggestions.push('Kookplaat: bestaande hergebruiken of een nieuwe leveren? Controleer model en uitsparingsmaten.');
+  suggestions.push('Werkblad: controleer lengte, diepte, materiaal, kleur, dikte, randafwerking en de benodigde uitsparingen voor spoelbak en kookplaat.');
  }
  const ids=lines.filter(l=>l.catalogId!=='front').map(l=>l.catalogId);if(new Set(ids).size!==ids.length)questions.push('Maak voor verschillende uitvoeringen aparte regels in de calculator en probeer opnieuw.');
  return{summary:raw.summary,questions:[...new Set(questions)],suggestions:[...new Set(suggestions)],lines};
