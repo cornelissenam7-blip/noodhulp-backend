@@ -30,7 +30,7 @@ export function customerDocument(input,userId){
  if(typeof input.name!=='string'||!input.name.trim()||input.name.length>200)throw fault(400,'Vul een projectnaam in van maximaal 200 tekens.');
  let payload=input.payload;
  if(!payload||typeof payload!=='object'||Array.isArray(payload)||Buffer.byteLength(JSON.stringify(payload))>1700000)throw fault(400,'Ongeldige of te grote projectinhoud.');
- if(input.product==='offertetool')payload=validateSnapshot(payload).snapshot;
+ if(input.product==='offertetool')payload={...validateSnapshot(payload).snapshot,customerProject:{projectId:input.projectId,revision:input.revision}};
  return {id:randomUUID(),user_id:userId,product_code:input.product,project_id:input.projectId,revision:input.revision,name:input.name.trim(),payload};
 }
 export function isPublicKey(key){
