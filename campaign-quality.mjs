@@ -6,6 +6,9 @@ export function normalizeCampaignCreative(value,en=false){
  if(!value||['body','ctaA','ctaB'].some(k=>typeof value[k]!=='string'||!value[k].trim()||value[k].length>3000))throw Object.assign(Error('AI heeft geen volledig advertentievoorstel gemaakt.'),{status:502});
  if(!ctas.includes(value.ctaA)||!ctas.includes(value.ctaB))throw Object.assign(Error('De oproep tot actie bevat niet-bevestigde voorwaarden.'),{status:502});
  if(value.ctaA.trim().toLowerCase()===value.ctaB.trim().toLowerCase())throw Object.assign(Error('De twee oproepen tot actie moeten verschillen.'),{status:502});
+ const body=value.body.trim().split(/(?<=[.!?])\s+/).filter(s=>!/^(?:bezoek|vraag|neem contact|bel|klik|ontdek|bekijk|stuur|visit|request|contact|call|click|discover|learn more|get in touch)\b/i.test(s)).join(' ');
+ if(!body)throw Object.assign(Error('De basistekst over het aanbod ontbreekt.'),{status:502});
+ value={...value,body};
  return en?`Proposed variant A: ${value.body.trim()} ${value.ctaA.trim()}\nProposed variant B: ${value.body.trim()} ${value.ctaB.trim()}\nTest factor: only the call to action changes. Keep the message, audience, image, landing page, budget allocation and evaluation period the same. No winner has been measured.`:`Voorstel variant A: ${value.body.trim()} ${value.ctaA.trim()}\nVoorstel variant B: ${value.body.trim()} ${value.ctaB.trim()}\nTestfactor: alleen de oproep tot actie verandert. Houd basistekst, doelgroep, beeld, landingspagina, budgetverdeling en meetperiode gelijk. Er is nog geen winnaar gemeten.`;
 }
 export function completeCampaignPlan(p,input){
@@ -22,6 +25,9 @@ export function completeCampaignPlan(p,input){
  const link=valid.find(x=>/(?:#|\/)(?:contact|offerte|quote|aanvraag|enquir|inquir)/i.test(x))||valid[0];
  const channel=find(/Kanaalkeuze|Channel selection/i);
  if(channel&&link&&!channel.text.includes(link))channel.text+='\n'+(en?'Supplied landing/contact page: ':'Aangeleverde landings-/contactpagina: ')+link;
+ if(channel)channel.text+='\n'+(en?'Search terms and negative keywords are proposals, not measured demand. Check real search queries before applying exclusions; do not block a broad relevant category without evidence.':'Zoektermen en uitsluitingen zijn voorstellen, geen gemeten vraag. Controleer echte zoekopdrachten vóór je uitsluitingen toepast; sluit zonder bewijs geen brede relevante categorie uit.');
+ const creative=find(/Advertentievoorstel|Ad proposal/i);
+ if(creative)creative.text=creative.text.replace(/\s*(Voorstel variant [AB]:|Proposed variant [AB]:|Testfactor:|Test factor:)/g,'\n$1').trim();
  const measurement=find(/Meten|Measurement/i);
  if(measurement)measurement.text+='\n'+(en?'Measurement checklist, still to configure and test: distinguish website visits, successfully submitted enquiries, qualified enquiries and paid customers. Use UTM parameters for source attribution, not as proof of an enquiry or sale. Deduplicate using an enquiry ID and link a confirmed paid order to that enquiry. Submit a recognisable test enquiry, exclude tests from campaign results and verify the source and event in administration. Record unknown attribution as unknown; do not claim causality.':'Meetchecklist, nog in te richten en te testen: onderscheid websitebezoeken, succesvol verzonden aanvragen, gekwalificeerde aanvragen en betaalde klanten. Gebruik UTM-parameters voor herkomst, niet als bewijs van een aanvraag of verkoop. Ontdubbel met een aanvraagnummer en koppel een bevestigde betaalde opdracht aan die aanvraag. Doe een herkenbare testaanvraag, sluit tests uit van campagneresultaten en controleer herkomst en gebeurtenis in Beheer. Noteer onbekende herkomst als onbekend; claim geen oorzakelijk verband.');
  const evaluation=find(/Evalueren|Evaluation/i);
