@@ -25,6 +25,41 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
  };
  const grant=async(u,c)=>{const [g]=await storage('amcinova_meta_grants',{method:'GET',query:'?tenant_id=eq.'+u.id+'&expires_at=gt.'+encodeURIComponent(new Date().toISOString())+'&select=*'});if(!g)throw fail(409,'Log opnieuw in bij Facebook om je pagina te kiezen.');return c.box.open(g.token_cipher,u.id);};
  const pages=async(c,token)=>{const all=[];let after;for(let n=0;n<10;n++){const d=await graph(c,'me/accounts',token,{fields:'id,name,access_token,tasks',limit:'100',...(after?{after}:{})});if(!Array.isArray(d.data))throw Error('Invalid pages');all.push(...d.data.filter(p=>id(p.id)&&typeof p.name==='string'&&typeof p.access_token==='string'&&p.tasks?.includes('MESSAGING')));after=d.paging?.cursors?.after;if(!d.paging?.next)return all;if(typeof after!=='string'||after.length>2000)throw Error('Invalid paging');}throw fail(409,'Te veel pagina’s. Beperk bij Facebook de gekozen pagina’s en probeer opnieuw.');};
+ const connection=async(u,c,pageId)=>{
+  if(env.AMCINOVA_META_REPLY_ENABLED!=='true')throw fail(503,'Berichten beantwoorden wordt voorbereid.');
+  if(!id(pageId))throw fail(400,'Kies een gekoppelde Facebookpagina.');
+  const rows=await storage('amcinova_meta_connections',{method:'GET',query:'?tenant_id=eq.'+u.id+'&page_id=eq.'+pageId+'&status=eq.connected&select=page_id,token_cipher'});
+  if(rows.length!==1)throw fail(403,'Deze pagina is niet met jouw account verbonden.');
+  return c.box.open(rows[0].token_cipher,u.id+':'+pageId);
+ };
+ const recentConversations=async(u,c,pageId)=>{
+  const rows=await storage('amcinova_meta_reply_contexts',{method:'GET',query:'?tenant_id=eq.'+u.id+'&page_id=eq.'+pageId+'&expires_at=gt.'+encodeURIComponent(new Date().toISOString())+'&order=message_at.desc&limit=50'});
+  const seen=new Set(),result=[];
+  for(const row of rows){
+   const data=JSON.parse(c.box.open(row.context_cipher,u.id+':'+pageId+':'+row.reply_key));
+   const age=Date.now()-Date.parse(row.message_at);
+   if(!id(data.recipient)||age<0||age>=86400000||seen.has(data.recipient))continue;
+   seen.add(data.recipient);result.push({id:row.reply_key,recipient:data.recipient,lastMessage:data.text,lastReceivedAt:row.message_at});
+  }
+  return result;
+ };
+ app.get('/api/customer/meta/conversations',wrap(async(req,res)=>{
+  const u=await access(req),c=metaCustomerConfig(env),pageId=req.query.pageId,token=await connection(u,c,pageId);
+  const threads=await recentConversations(u,c,pageId);
+  res.json({ok:true,conversations:threads.map(({recipient,...thread})=>thread)});
+ }));
+ app.post('/api/customer/meta/reply',json({limit:'12kb'}),wrap(async(req,res)=>{
+  const u=await access(req),c=metaCustomerConfig(env),{pageId,conversationId,text}=req.body;
+  if(typeof text!=='string'||!text.trim()||text.length>2000||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text))throw fail(400,'Schrijf een antwoord van maximaal 2000 tekens.');
+  const token=await connection(u,c,pageId);
+  const thread=(await recentConversations(u,c,pageId)).find(t=>t.id===conversationId);
+  if(!thread)throw fail(409,'Dit gesprek kan nu niet worden beantwoord. Haal recente gesprekken opnieuw op.');
+  let result;
+  try{result=await graph(c,pageId+'/messages',token,{recipient:JSON.stringify({id:thread.recipient}),messaging_type:'RESPONSE',message:JSON.stringify({text:text.trim()})},'POST');}
+  catch(e){if(e.status===503)throw fail(503,'Verzendstatus onbekend. Controleer Messenger voordat je opnieuw verzendt.');throw e;}
+  if(result.recipient_id!==thread.recipient||typeof result.message_id!=='string'||!result.message_id)throw fail(502,'Verzendstatus onbekend. Controleer Messenger voordat je opnieuw verzendt.');
+  res.json({ok:true,messageId:result.message_id});
+ }));
  app.post('/api/customer/meta/start',json({limit:'2kb'}),wrap(async(req,res)=>{
   const u=await access(req),c=metaCustomerConfig(env),state=randomBytes(32).toString('base64url');
   await storage('amcinova_meta_states',{method:'DELETE',query:'?tenant_id=eq.'+u.id,prefer:'return=representation'});

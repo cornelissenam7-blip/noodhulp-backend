@@ -23,7 +23,7 @@ export function verifyRawBody(raw,signature,appSecret,maxBytes=262144){
 // store.insertReceiptOnce MUST atomically persist the receipt and enforce unique
 // (tenantId, platform, accountId, messageId). Return true=inserted, false=duplicate.
 // Do not implement this contract with a process-local Set or check-then-insert.
-export function createDmWebhook({appSecret,conversationSecret,accounts,store,maxBytes=262144,resolveConfirmedPost}){
+export function createDmWebhook({appSecret,conversationSecret,accounts,store,maxBytes=262144,resolveConfirmedPost,replyContextEnabled=false}){
  if(typeof conversationSecret!=='string'||conversationSecret.length<32||!Array.isArray(accounts)||!store||typeof store.insertReceiptOnce!=='function')throw fail(503,'Adapter not configured');
  const mapping=new Map();for(const a of accounts){
   if(!['facebook','instagram'].includes(a.platform)||!validId(a.accountId)||!validId(a.tenantId))throw fail(503,'Invalid mapping');
@@ -51,7 +51,7 @@ export function createDmWebhook({appSecret,conversationSecret,accounts,store,max
      const resolved=await resolveConfirmedPost({platform,accountId,tenantId:account.tenantId,event});
      if(resolved?.evidence==='confirmed_platform_context'&&typeof resolved.postId==='string'&&account.allowedPostIds.has(resolved.postId))postId=resolved.postId;
     }
-    pending.push({tenantId:account.tenantId,platform,accountId,messageId:message.mid,conversationKey,receivedAt:new Date(event.timestamp).toISOString(),kind:'inbound_dm',qualifiedLead:false,postId,postEvidence:postId?'confirmed_platform_context':'unknown'});
+    pending.push({tenantId:account.tenantId,platform,accountId,messageId:message.mid,conversationKey,receivedAt:new Date(event.timestamp).toISOString(),kind:'inbound_dm',qualifiedLead:false,postId,postEvidence:postId?'confirmed_platform_context':'unknown',...(replyContextEnabled?{senderId:event.sender.id,messageText:message.text}:{})});
    }
   }
   let inserted=0,duplicates=0;for(const receipt of pending){const result=await store.insertReceiptOnce(receipt);if(result===true)inserted++;else if(result===false)duplicates++;else throw fail(503,'Invalid persistent store result');}

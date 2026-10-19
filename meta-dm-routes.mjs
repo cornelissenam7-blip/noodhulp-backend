@@ -1,12 +1,14 @@
 import {createDmWebhook,verifyChallenge,verifyRawBody} from './meta-dm-webhook.mjs';
+import {saveReplyContext} from './meta-reply-context.mjs';
 const path='/api/integrations/meta/webhook';
 const unavailable=()=>Object.assign(new Error('Webhook unavailable'),{status:503});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function createMetaReceiptStore(adminDb){
+export function createMetaReceiptStore(adminDb,env={}){
  return {async insertReceiptOnce(r){
   const rows=await adminDb('amcinova_social_dm_receipts',{method:'POST',query:'?on_conflict=tenant_id,platform,account_id,message_id',prefer:'resolution=ignore-duplicates,return=representation',body:{tenant_id:r.tenantId,platform:r.platform,account_id:r.accountId,message_id:r.messageId,conversation_key:r.conversationKey,message_at:r.receivedAt,kind:r.kind,qualified_lead:false,post_id:null,post_evidence:'unknown'}});
   if(!Array.isArray(rows)||rows.length>1)throw unavailable();
   if(rows.length===1&&(!rows[0]||typeof rows[0]!=='object'))throw unavailable();
+  await saveReplyContext(adminDb,env,r);
   return rows.length===1;
  }};
 }
@@ -33,7 +35,7 @@ export function registerMetaDmRoutes(app,{raw,env,adminDb}){
    const ids=[...new Set(payload.entry.map(e=>e?.id))];if(ids.some(v=>typeof v!=='string'||!/^\d{1,40}$/.test(v)))throw Object.assign(Error('Invalid page'),{status:400});
    const rows=ids.length?await adminDb('amcinova_meta_connections',{method:'GET',query:'?page_id=in.('+ids.join(',')+')&status=eq.connected&select=page_id,tenant_id'}):[];
    if(!Array.isArray(rows)||rows.some(r=>!uuid.test(r.tenant_id)))throw unavailable();
-   req.metaDmReceiver=createDmWebhook({appSecret:env.AMCINOVA_META_APP_SECRET,conversationSecret:env.AMCINOVA_META_CONVERSATION_SECRET,accounts:rows.map(r=>({platform:'facebook',accountId:r.page_id,tenantId:r.tenant_id})),store:createMetaReceiptStore(adminDb)});
+   req.metaDmReceiver=createDmWebhook({appSecret:env.AMCINOVA_META_APP_SECRET,conversationSecret:env.AMCINOVA_META_CONVERSATION_SECRET,accounts:rows.map(r=>({platform:'facebook',accountId:r.page_id,tenantId:r.tenant_id})),store:createMetaReceiptStore(adminDb,env),replyContextEnabled:env.AMCINOVA_META_REPLY_ENABLED==='true'});
   }
   const result=await req.metaDmReceiver(req.body,req.get('x-hub-signature-256'));res.json(result);
  }catch(e){error(e,req,res);}},error);
