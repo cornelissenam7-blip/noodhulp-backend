@@ -24,7 +24,7 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
   if(!r.ok||d.error)throw fail(502,'Facebook heeft de koppeling niet bevestigd. Controleer je paginatoegang en toestemming.');return d;
  };
  const grant=async(u,c)=>{const [g]=await storage('amcinova_meta_grants',{method:'GET',query:'?tenant_id=eq.'+u.id+'&expires_at=gt.'+encodeURIComponent(new Date().toISOString())+'&select=*'});if(!g)throw fail(409,'Log opnieuw in bij Facebook om je pagina te kiezen.');return c.box.open(g.token_cipher,u.id);};
- const pages=async(c,token)=>{const all=[];let after;for(let n=0;n<10;n++){const d=await graph(c,'me/accounts',token,{fields:'id,name,access_token,tasks',limit:'100',...(after?{after}:{})});if(!Array.isArray(d.data))throw Error('Invalid pages');all.push(...d.data.filter(p=>id(p.id)&&typeof p.name==='string'&&typeof p.access_token==='string'&&p.tasks?.includes('MESSAGING')));after=d.paging?.cursors?.after;if(!d.paging?.next)return all;if(typeof after!=='string'||after.length>2000)throw Error('Invalid paging');}throw fail(409,'Te veel pagina’s. Beperk bij Facebook de gekozen pagina’s en probeer opnieuw.');};
+ const pages=async(c,token,includeUnavailable=false)=>{const all=[];let after;for(let n=0;n<10;n++){const d=await graph(c,'me/accounts',token,{fields:'id,name,access_token,tasks',limit:'100',...(after?{after}:{})});if(!Array.isArray(d.data))throw Error('Invalid pages');all.push(...d.data.filter(p=>id(p.id)&&typeof p.name==='string'&&(includeUnavailable||(typeof p.access_token==='string'&&p.tasks?.includes('MESSAGING')))));after=d.paging?.cursors?.after;if(!d.paging?.next)return all;if(typeof after!=='string'||after.length>2000)throw Error('Invalid paging');}throw fail(409,'Te veel pagina’s. Beperk bij Facebook de gekozen pagina’s en probeer opnieuw.');};
  const connection=async(u,c,pageId)=>{
   if(env.AMCINOVA_META_REPLY_ENABLED!=='true')throw fail(503,'Berichten beantwoorden wordt voorbereid.');
   if(!id(pageId))throw fail(400,'Kies een gekoppelde Facebookpagina.');
@@ -91,7 +91,11 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
    res.clearCookie('__Host-amcinova-meta',{secure:true,httpOnly:true,sameSite:'lax',path:'/'});res.redirect(303,c.origin+'/social-connect.html#ready');
   }catch{res.status(400).type('text/plain').send('Facebook koppelen is niet voltooid. Sluit dit venster en probeer opnieuw vanuit Mijn Amcinova.');}
  });
- app.get('/api/customer/meta/pages',wrap(async(req,res)=>{const u=await access(req),c=metaCustomerConfig(env);res.json({ok:true,pages:(await pages(c,await grant(u,c))).map(p=>({id:p.id,name:p.name}))});}));
+ app.get('/api/customer/meta/pages',wrap(async(req,res)=>{
+  const u=await access(req),c=metaCustomerConfig(env),candidates=await pages(c,await grant(u,c),true);
+  const eligible=p=>typeof p.access_token==='string'&&p.tasks?.includes('MESSAGING');
+  res.json({ok:true,pages:candidates.filter(eligible).map(p=>({id:p.id,name:p.name})),unavailablePages:candidates.filter(p=>!eligible(p)).map(p=>({id:p.id,name:p.name,hasPageToken:typeof p.access_token==='string',tasks:Array.isArray(p.tasks)?p.tasks.filter(t=>typeof t==='string'&&/^[A-Z_]{1,80}$/.test(t)):[]}))});
+ }));
  app.post('/api/customer/meta/connect',json({limit:'2kb'}),wrap(async(req,res)=>{
   const u=await access(req),c=metaCustomerConfig(env);if(!id(req.body.pageId))throw fail(400,'Kies een Facebookpagina.');
   const page=(await pages(c,await grant(u,c))).find(p=>p.id===req.body.pageId);if(!page)throw fail(403,'Je hebt geen berichtentoegang tot deze pagina.');
