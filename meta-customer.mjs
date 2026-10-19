@@ -1,3 +1,4 @@
+import {registerMetaPublishing,publishScopes} from './meta-publishing.mjs';
 import {randomBytes,createHash,createCipheriv,createDecipheriv,createHmac} from 'node:crypto';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 const hash=x=>createHash('sha256').update(x).digest('hex');
@@ -61,7 +62,7 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
   res.json({ok:true,messageId:result.message_id});
  }));
  app.post('/api/customer/meta/start',json({limit:'2kb'}),wrap(async(req,res)=>{
-  const u=await access(req),c=metaCustomerConfig(env),state=randomBytes(32).toString('base64url');
+  const u=await access(req),c=metaCustomerConfig(env),publishing=req.body.purpose==='publishing',state=(publishing?'p.':'')+randomBytes(32).toString('base64url');if(publishing&&u.product!=='admaker')throw fail(403,'Open publiceren vanuit AdMaker.');if(publishing&&!id(env.AMCINOVA_META_PUBLISH_LOGIN_CONFIG_ID))throw fail(409,'De publicatiefunctie staat klaar, maar de extra Meta-publicatierechten moeten nog worden geactiveerd.');
   await storage('amcinova_meta_states',{method:'DELETE',query:'?tenant_id=eq.'+u.id,prefer:'return=representation'});
   await storage('amcinova_meta_states',{method:'POST',body:{state_hash:hash(state),binding_hash:null,tenant_id:u.id,product:u.product,expires_at:new Date(Date.now()+600000).toISOString()},prefer:'return=representation'});
   res.json({ok:true,url:c.origin+'/api/customer/meta/begin?state='+state});
@@ -70,23 +71,23 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
  // and credentialed CORS between the customer website and the API host.
  app.get('/api/customer/meta/begin',async(req,res)=>{res.set({'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});try{
   const c=metaCustomerConfig(env),state=req.query.state,binding=randomBytes(32).toString('base64url');
-  if(typeof state!=='string'||!/^[\w-]{43}$/.test(state))throw Error('Invalid state');
+  if(typeof state!=='string'||!/^(?:p\.)?[\w-]{43}$/.test(state))throw Error('Invalid state');
   const rows=await storage('amcinova_meta_states',{method:'PATCH',query:'?state_hash=eq.'+hash(state)+'&binding_hash=is.null&expires_at=gt.'+encodeURIComponent(new Date().toISOString()),body:{binding_hash:hash(binding)},prefer:'return=representation'});if(rows.length!==1)throw Error('Expired start');
   res.cookie('__Host-amcinova-meta',binding,{secure:true,httpOnly:true,sameSite:'lax',path:'/',maxAge:600000});
-  const url=new URL('https://www.facebook.com/'+c.version+'/dialog/oauth');url.search=new URLSearchParams({client_id:c.appId,config_id:c.configId,redirect_uri:c.callback,state,response_type:'code',override_default_response_type:'true'}).toString();res.redirect(303,url.href);
+  const url=new URL('https://www.facebook.com/'+c.version+'/dialog/oauth');url.search=new URLSearchParams({client_id:c.appId,config_id:state.startsWith('p.')?env.AMCINOVA_META_PUBLISH_LOGIN_CONFIG_ID:c.configId,redirect_uri:c.callback,state,response_type:'code',override_default_response_type:'true'}).toString();res.redirect(303,url.href);
  }catch{res.status(400).type('text/plain').send('De aanmelding is verlopen. Start opnieuw vanuit Amcinova.');}});
  app.get('/api/customer/meta/callback',async(req,res)=>{
   res.set({'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});
   try{
    const c=metaCustomerConfig(env),state=req.query.state,binding=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('__Host-amcinova-meta='))?.slice(21);
-   if(typeof state!=='string'||!/^[\w-]{43}$/.test(state)||!binding)throw Error('Invalid callback');
+   if(typeof state!=='string'||!/^(?:p\.)?[\w-]{43}$/.test(state)||!binding)throw Error('Invalid callback');
    // DELETE RETURNING is the single-use claim, including concurrent callbacks.
    const [s]=await storage('amcinova_meta_states',{method:'DELETE',query:'?state_hash=eq.'+hash(state)+'&binding_hash=eq.'+hash(binding)+'&expires_at=gt.'+encodeURIComponent(new Date().toISOString()),prefer:'return=representation'});
    if(!s||req.query.error||typeof req.query.code!=='string'||req.query.code.length>4096)throw Error('Denied or expired');
    const token=await graph(c,'oauth/access_token',null,{client_id:c.appId,client_secret:c.secret,redirect_uri:c.callback,code:req.query.code},'POST');
    if(typeof token.access_token!=='string')throw Error('Missing token');
    const permissions=await graph(c,'me/permissions',token.access_token);
-   if(!scopes.every(p=>permissions.data?.some(x=>x.permission===p&&x.status==='granted')))throw Error('Missing permission');
+   if(!(state.startsWith('p.')?publishScopes:scopes).every(p=>permissions.data?.some(x=>x.permission===p&&x.status==='granted')))throw Error('Missing permission');
    await storage('amcinova_meta_grants',{method:'POST',query:'?on_conflict=tenant_id',prefer:'resolution=merge-duplicates,return=representation',body:{tenant_id:s.tenant_id,token_cipher:c.box.seal(token.access_token,s.tenant_id),expires_at:new Date(Date.now()+600000).toISOString()}});
    res.clearCookie('__Host-amcinova-meta',{secure:true,httpOnly:true,sameSite:'lax',path:'/'});res.redirect(303,c.origin+'/social-connect.html#ready');
   }catch{res.status(400).type('text/plain').send('Facebook koppelen is niet voltooid. Sluit dit venster en probeer opnieuw vanuit Mijn Amcinova.');}
@@ -120,4 +121,5 @@ export function registerMetaCustomer(app,{json,env,adminDb,identity,requireProdu
   const result=await graph(c,row.page_id+'/subscribed_apps',c.box.open(row.token_cipher,u.id+':'+row.page_id),{},'DELETE');if(result.success!==true)throw fail(502,'Ontvangst is gestopt; Facebook ontkoppelen moet opnieuw worden geprobeerd.');
   const removed=await storage('amcinova_meta_connections',{method:'DELETE',query:'?tenant_id=eq.'+u.id+'&page_id=eq.'+row.page_id+'&status=eq.disconnected&attempt=eq.'+row.attempt,prefer:'return=representation'});if(removed.length!==1)throw fail(409,'De koppeling is ondertussen gewijzigd. Controleer de status.');res.json({ok:true});
  }));
+ registerMetaPublishing(app,{json,env,access,storage,graph,grant,pages,config:metaCustomerConfig,fetchImpl});
 }
