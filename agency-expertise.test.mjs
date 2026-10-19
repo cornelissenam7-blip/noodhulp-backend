@@ -23,6 +23,8 @@ test('customer ad generation uses creative guidance in the existing single reque
 });
 test('campaign keeps all seven plan fields and the supplied budget without extra model calls',async()=>{
  let calls=0;const plan=Object.fromEntries(['goal','audience','channel','budget','creative','measurement','evaluation'].map(k=>[k,'Proposed '+k]));
+ plan.creative={body:'Workshop.',ctaA:'Request a quote.',ctaB:'Discuss the possibilities.'};
+ plan.measurement='Register enquiry events and check tracking with a test enquiry.';
  const result=await generateAgent({task:'campaign',fields:{language:'en','campaign-budget':'€100 per month','profile-name':'TEST','profile-offer':'Workshop'}},{env,fetchImpl:async(_,options)=>{calls++;const b=JSON.parse(options.body);assert.match(b.instructions,/CAMPAGNE/);assert.match(b.instructions,/ontdubbelen/);assert.equal(b.text.format.name,'amcinova_campaign');return response({title:'TEST',summary:'Concept',plan,questions:[]});}});
  assert.equal(calls,1);assert.equal(result.sections.length,7);assert.equal(result.sections.find(s=>s.heading==='Budget').text,'€100 per month');
 });

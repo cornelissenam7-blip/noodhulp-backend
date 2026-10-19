@@ -1,6 +1,6 @@
 // Repair concrete unsupported marketing embellishments using supplied facts.
 // No extra model call, fabricated business facts or generic successful-plan fallback.
-const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|expertise|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety|geweldig|geweldige|top|kwaliteit|quality|zonder zorgen|met zorg en aandacht|effici[eë]nt|efficient)\b/gi;
+const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|expertise|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend(?:e)?|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety|geweldig|geweldige|top|kwaliteit|quality|zonder zorgen|met zorg en aandacht|effici[eë]nt|efficient)\b/gi;
 const affirmative=s=>s.split(/[.!?\n]+/).filter(part=>! /\b(?:no|not|unknown|unconfirmed|geen|niet|onbekend)\b/i.test(part)).join(' ');
 const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function repairFactualCopy(p,input){
@@ -35,8 +35,7 @@ export function repairFactualCopy(p,input){
   const embellishment=[...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))||/\b(?:expertise|effici[eë]nt|op maat)\b/i.test(s.text)&&! /\b(?:expertise|effici[eë]nt|op maat)\b/i.test(facts);
   if(!embellishment||!offer)return {...s,text:clean(s.text)};
   const literalOffer=offer.split(/(?<=[.!?])\s+/)[0];
-  const audience=(fields['profile-audience']||'').trim().replace(/[.!?]+$/,'');
-  return {...s,text:fields.language==='en'?`Proposed variant A: ${literalOffer} Request more information.\nProposed variant B: ${audience?audience+'. ':''}${literalOffer} Request more information.\nCompare an offer-first opening with an audience-first opening; no winner has been measured.`:`Voorstel variant A: ${literalOffer} Vraag meer informatie aan.\nVoorstel variant B: ${audience?audience+'. ':''}${literalOffer} Vraag meer informatie aan.\nVergelijk een opening met het aanbod met een opening voor de doelgroep; er is nog geen winnaar gemeten.`};
+  return {...s,text:fields.language==='en'?`Proposed variant A: ${literalOffer} Request more information.\nProposed variant B: ${literalOffer} Discuss the possibilities.\nCompare only the call to action; keep the message, audience, image, landing page, budget allocation and evaluation period the same. No winner has been measured.`:`Voorstel variant A: ${literalOffer} Vraag meer informatie aan.\nVoorstel variant B: ${literalOffer} Bespreek de mogelijkheden.\nVergelijk alleen de oproep tot actie; houd basistekst, doelgroep, beeld, landingspagina, budgetverdeling en meetperiode gelijk. Er is nog geen winnaar gemeten.`};
  });
  // A repair can merge two formerly different ad headlines. Keep the rate untouched
  // and use a factual location/service opening rather than artificial synonyms.
