@@ -51,14 +51,14 @@ export function normalizeTaskOutput(p,task,language='nl'){
 }
 // Deterministic checks only: no model critic may reject supported omissions or style.
 export function checkConcreteClaims(p,input){
- const text=[p.title,p.summary,p.headline,p.intro,p.cta,...p.sections.map(s=>s.text),...p.ads.flatMap(a=>[a.headline,a.text,a.cta])].join(' ');
+ const text=[p.title,p.summary,p.headline,p.intro,p.cta,...p.sections.map(s=>s.text),...p.ads.flatMap(a=>[a.headline,a.text,a.cta,a.visual?.headline||'',a.visual?.subtitle||''])].join(' ');
  const source=Object.entries(input.fields).filter(([k])=>k.startsWith('profile-')||['agent-instructions','builder-offer','ad-offer','ad-benefit','campaign-budget'].includes(k)).map(([,v])=>v).join(' ');
  const money=x=>[...x.matchAll(/(?:€|EUR)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*euro\b/gi)].map(m=>Number((m[1]||m[2]).replace(',','.')));
  const supplied=money(source),issues=[];
  const factualSource=Object.entries(input.fields).filter(([k])=>k.startsWith('profile-')||['builder-offer','ad-offer','ad-benefit'].includes(k)).map(([,v])=>v).join(' ');
  const affirmative=s=>s.split(/[.!?\n]+/).filter(part=>! /\b(?:no|not|unknown|unconfirmed|geen|niet|onbekend)\b/i.test(part)).join(' ');
  const confirmed=affirmative(factualSource);
- const marketingText=input.task==='site'?text:input.task==='ads'?[p.title,p.summary,...p.ads.flatMap(a=>[a.headline,a.text,a.cta])].join(' '):input.task==='campaign'?[p.title,p.summary,...p.sections.filter(s=>/Advertentievoorstel|Ad proposal/i.test(s.heading)).map(s=>s.text)].join(' '):'';
+ const marketingText=input.task==='site'?text:input.task==='ads'?[p.title,p.summary,...p.ads.flatMap(a=>[a.headline,a.text,a.cta,a.visual?.headline||'',a.visual?.subtitle||''])].join(' '):input.task==='campaign'?[p.title,p.summary,...p.sections.filter(s=>/Advertentievoorstel|Ad proposal/i.test(s.heading)).map(s=>s.text)].join(' '):'';
  const qualifiers=/\b(?:expert|experts|professional|experienced|certified|award-winning|best-rated|deskundig|deskundige|professioneel|professionele|ervaren|gecertificeerd|gecertificeerde|bekroond|gratis|free|vrijblijvend(?:e)?|no-obligation|scherpe prijs|scherp tarief|competitive price)\b/gi;
  for(const claim of affirmative(marketingText).match(qualifiers)||[])if(!new RegExp('\\b'+claim+'\\b','i').test(confirmed))issues.push('Verwijder onbevestigde aanbod- of kwaliteitsclaim: '+claim+'. Herformuleer uitsluitend het opgegeven aanbod.');
  for(const claim of affirmative(marketingText).match(/\b(?:betaalbaar|betrouwbaar|betrouwbare|affordable|reliable)\b/gi)||[])if(!new RegExp('\\b'+claim+'\\b','i').test(confirmed))issues.push('Verwijder onbevestigde kwaliteitsclaim: '+claim+'.');
