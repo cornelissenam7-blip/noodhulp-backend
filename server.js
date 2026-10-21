@@ -1,5 +1,6 @@
 import {registerKrnnContentReport} from "./krnn-content-report.mjs";
 import {registerConsultationRoutes} from './consultation-routes.mjs';
+import {registerConsultationChat} from './consultation-chat.mjs';
 // server.js (ESM) — drop-in vervanger
 
 import "dotenv/config";
@@ -334,6 +335,7 @@ app.use(cors({
 }));
 registerKrnnContentReport(app,{adminAccess:hasAdminAccess});
 registerConsultationRoutes(app,{json:express.json,db:supabaseRequest,adminAccess:hasAdminAccess});
+registerConsultationChat(app,{json:express.json});
 registerQuoteRoutes(app, { json: express.json });
 registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest, testPayments:amcinovaTestPayments });
 registerWorkbookRoutes(app, { json:express.json, hasAdminAccess:req=>!req.query?.key&&hasAdminAccess(req), mailTransport:createWorkbookRelayTransport() || createWorkbookSmtpTransport() });
