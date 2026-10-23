@@ -32,6 +32,27 @@ export async function previewWebsite(raw,{resolve=lookup,request=requestHTML}={}
     const label=websiteText(match[2]).slice(0,140);if(label&&!links.some(l=>l.url===target.href))links.push({label,url:target.href});if(links.length===30)break;
    }catch{}
   }
-  return {requestedURL:original,sourceURL:u.href,fetchedAt:new Date().toISOString(),title,text,links,confirmed:false,note:'Gelezen brontekst, nog niet bevestigd. Controleer en selecteer de feiten voordat je ze in je bedrijfsprofiel gebruikt.'};
+  const images=[];
+  for(const match of response.html.matchAll(/<img\b[^>]*>/gi)){
+   const src=match[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1],alt=match[0].match(/\balt\s*=\s*["']([^"']*)["']/i)?.[1]||'';
+   try{const target=websiteURL(new URL(src,u).href);if(target.origin!==u.origin||!src||/logo|icon|avatar|pixel|tracking/i.test(src+' '+alt)||target.search||images.some(i=>i.url===target.href))continue;
+    images.push({url:target.href,alt:websiteText(alt).slice(0,200)});if(images.length===12)break;
+   }catch{}
+  }
+  return {requestedURL:original,sourceURL:u.href,fetchedAt:new Date().toISOString(),title,text,links,images,confirmed:false,note:'Gelezen brontekst, nog niet bevestigd. Controleer en selecteer de feiten voordat je ze in je bedrijfsprofiel gebruikt.'};
  }throw fail('De website verwijst te vaak door.');
+}
+function requestImage(u,address){return new Promise((resolve,reject)=>{
+ const req=get(u,{lookup:(_host,options,cb)=>options?.all?cb(null,[{address,family:4}]):cb(null,address,4),headers:{'User-Agent':'Amcinova-WebsitePreview/1.0','Accept':'image/jpeg,image/png,image/webp'},timeout:12000},res=>{
+  if(res.statusCode!==200||!/^image\/(?:jpeg|png|webp)\b/i.test(res.headers['content-type']||'')){res.resume();return reject(fail('De bron gaf geen bruikbare productafbeelding terug.'));}
+  let length=0;const chunks=[];res.on('data',chunk=>{length+=chunk.length;if(length>650000){res.destroy();reject(fail('De productafbeelding is groter dan 650 kB.'));}else chunks.push(chunk);});res.on('end',()=>resolve(Buffer.concat(chunks)));res.on('error',reject);
+ });req.on('timeout',()=>req.destroy(fail('De productafbeelding reageert niet op tijd.')));req.on('error',reject);
+ });}
+export async function websiteImage(raw,origin,{resolve=lookup,request=requestImage}={}){
+ const u=websiteURL(raw);if(u.origin!==new URL(origin).origin||u.search)throw fail('Gebruik alleen een aangetroffen afbeelding van deze website.');
+ const addresses=await resolve(u.hostname,{all:true,family:4});if(!addresses.length||addresses.some(a=>!publicIPv4(a.address)))throw fail('Geen openbare productafbeelding.');
+ const bytes=await request(u,addresses[0].address);if(!Buffer.isBuffer(bytes)||bytes.length>650000)throw fail('Geen bruikbare productafbeelding.');
+ const type=bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'jpeg':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'png':bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP'?'webp':null;
+ if(!type)throw fail('De bron bevat geen ondersteund afbeeldingsbestand.');
+ return {image:'data:image/'+type+';base64,'+bytes.toString('base64'),sourceURL:u.href,illustration:false};
 }

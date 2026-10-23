@@ -20,3 +20,13 @@ test('captures useful purchase links as data without visiting them or including 
  let calls=0;const r=await previewWebsite('https://example.com',{resolve:async()=>[{address:'8.8.8.8'}],request:async()=>{calls++;return {html};}});
  assert.equal(calls,1);assert.equal(r.title,'Ontdekboeken');assert.equal(r.links.length,1);assert.match(r.links[0].url,/add-to-cart=71/);
 });
+
+test('product images come only from observed public origin and raster content',async()=>{
+ const {websiteImage}=await import('./marketing-website.mjs');let calls=0;
+ const deps={resolve:async()=>[{address:'93.184.216.34'}],request:async()=>{calls++;return Buffer.from([255,216,255,0]);}};
+ assert.match((await websiteImage('https://example.com/book.jpg','https://example.com/',deps)).image,/^data:image\/jpeg;base64,/);
+ await assert.rejects(()=>websiteImage('https://other.example/book.jpg','https://example.com/',deps));
+ await assert.rejects(()=>websiteImage('https://example.com/book.svg','https://example.com/',{...deps,request:async()=>Buffer.from('<svg onload="evil()"/>')}));
+ await assert.rejects(()=>websiteImage('https://example.com/book.jpg','https://example.com/',{...deps,resolve:async()=>[{address:'127.0.0.1'}]}));
+ assert.equal(calls,1);
+});

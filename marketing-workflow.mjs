@@ -58,7 +58,7 @@ export function startWorkflowStep(p,step,requestId){
  workflowId(requestId);workflowInput(p,step);if(p.attempts.some(a=>a.id===requestId))throw fail(409,'Deze aanvraag is al verwerkt. Haal het project op.');
  const steps={...p.steps,[step]:{status:'running'}};
  if(p.automaticDrafts)for(const following of workflowSteps.slice(workflowSteps.indexOf(step)+1))steps[following]={status:'pending'};
- return {...p,steps,attempts:[...p.attempts,{id:requestId,step,status:'running'}]};
+ return {...p,delivery:null,steps,attempts:[...p.attempts,{id:requestId,step,status:'running'}]};
 }
 export function finishWorkflowStep(p,step,requestId,result){
  if(!result||typeof result!=='object'||Array.isArray(result)||JSON.stringify(result).length>80000)throw fail(502,'Geen bruikbaar agentresultaat ontvangen.');
@@ -74,8 +74,9 @@ export function approveWorkflowStep(p,step){
 }
 export function workflowReadiness(p){
  const checks=workflowSteps.map(s=>({code:s,passed:p.steps[s]?.status==='approved'}));
+ checks.push({code:'product_assets',passed:!!p.delivery?.assets?.some(a=>a.image)},{code:'private_package',passed:!!p.delivery?.bundle?.variants?.length},{code:'signed_trial_links',passed:!!p.delivery?.trackingLinks?.length});
  checks.push(...['video_audio_approved','video_render_verified','youtube_private_upload_verified','funnel_lead_roundtrip','agent_followup_verified','attribution_verified','payment_and_access_verified','owner_live_approval'].map(code=>({code,passed:false})));
- return {mode:'test',liveEnabled:false,checks,readyForLive:false,message:'Proefroute. Productiepublicatie, verzending en echte betalingen blijven geblokkeerd.'};
+ return {mode:'test',liveEnabled:false,checks,readyForLive:false,message:'De marketingproef blijft privé. Bestaande webshopbetalingen worden hiermee niet uitgeschakeld.'};
 }
 export function workflowSigner(secret){
  if(!secret)throw fail(503,'De procesondertekening is nog niet ingesteld.');

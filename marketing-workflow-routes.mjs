@@ -1,8 +1,9 @@
 import {randomUUID} from 'node:crypto';
 import {previewWebsite} from './marketing-website.mjs';
+import {registerMarketingDelivery} from './marketing-delivery.mjs';
 import {newWorkflow,workflowFromWebsite,workflowId,workflowInput,confirmWorkflow,startWorkflowStep,finishWorkflowStep,approveWorkflowStep,workflowReadiness,workflowSigner} from './marketing-workflow.mjs';
 const fail=(s,m)=>Object.assign(Error(m),{status:s});
-export function registerMarketingWorkflow(app,{json,env,identity,db,requireProduct,wrap,credits,generateAgent,fetchImpl,previewSite=previewWebsite}){
+export function registerMarketingWorkflow(app,{json,env,identity,db,requireProduct,wrap,credits,generateAgent,fetchImpl,previewSite=previewWebsite,salesStore}){
  const prefix='/api/customer/marketing-projects',table='amcinova_customer_documents';
  const generationLimits=new Map();
  const signing=()=>workflowSigner(env.MARKETING_WORKFLOW_SECRET||env.AGENT_SIGNING_SECRET||env.SUPABASE_SERVICE_ROLE_KEY);
@@ -11,6 +12,7 @@ export function registerMarketingWorkflow(app,{json,env,identity,db,requireProdu
  async function save(u,p,revision){const next={...p,revision,updatedAt:new Date().toISOString()};const row={id:randomUUID(),user_id:u.id,product_code:'campaign',project_id:p.id,revision,name:p.name,payload:signing().seal(next,u.id)};const rows=await db(u,table,'',row);if(rows[0]?.id!==row.id)throw fail(503,'Opslaan van de processtap niet bevestigd. Haal de status op voordat je opnieuw begint.');return next;}
  const reply=(res,p)=>res.json({ok:true,project:p,readiness:workflowReadiness(p)});
  const revision=(p,b)=>{if(b?.revision!==p.revision)throw fail(409,'Het project is gewijzigd. Haal eerst de laatste versie op.');};
+ registerMarketingDelivery(app,{prefix,json,wrap,enabled,identity,load,save,revision,reply,db,env,requireProduct,previewSite,salesStore});
  app.post(prefix,json({limit:'24kb'}),wrap(async(req,res)=>{enabled();const u=await identity(req);await requireProduct(u,'campaign');const p=newWorkflow(req.body);reply(res,await save(u,p,1));}));
  const websiteLimits=new Map();
  function claimWebsite(u){const now=Date.now(),bucket=websiteLimits.get(u.id);if(bucket&&bucket.until>now&&bucket.count>=5)throw fail(429,'Maximaal vijf websitecontroles per uur.');for(const [id,b]of websiteLimits)if(b.until<=now)websiteLimits.delete(id);if(websiteLimits.size>5000)throw fail(429,'Websitecontrole is tijdelijk bezet.');websiteLimits.set(u.id,{count:bucket?.until>now?bucket.count+1:1,until:bucket?.until>now?bucket.until:now+3600000});}
