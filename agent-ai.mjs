@@ -97,7 +97,7 @@ export function preserveAdDetails(p,input){
  const offer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim().split(/[.!?]\s+/)[0];
  const action=/^(?:offerte aanvragen|boek|reserveer|bestel|koop|bel|klik|vraag|neem contact|meld je|schrijf je|plan|stuur|book|reserve|order|buy|call|click|request|contact|enhance|improve|maintain|refresh|revitalize|upgrade|transform|give|enjoy|experience|get|inquire|enquire|ask|schedule|visit|find out|discover|explore|start|connect|send|message|learn|talk|speak|informeer|ontdek|bekijk|bezoek|get in touch|reach out|learn more|sign up|secure your|join|enrol)\b/i;
  const link=input.fields['ad-link'];
- const rawOffer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim();
+ const rawOffer=(input.fields['ad-offer']||input.fields['profile-offer']||'').trim(),copyLimit=isSocialPost(input)?2200:90;
  const conditions=[...rawOffer.matchAll(/\b(?:exclusief|inclusief|excl\.|incl\.|excluding|including)\s+[^.!?\n]{1,100}/gi)].map(m=>m[0]);
  const canonical=s=>s.toLowerCase().replace(/\b(?:exclusief|excl\.?|excluding)\b\.?/g,'excluding').replace(/\b(?:inclusief|incl\.?|including)\b\.?/g,'including').replace(/\bbtw\b/g,'vat').replace(/\b(?:materiaal|materialen)\b/g,'materials').replace(/\ben\b/g,'and').replace(/[.,;:]/g,' ').replace(/\s+/g,' ').trim();
  const price=rawOffer.match(/(?:[€$£]|\b(?:EUR|USD|GBP)\b)\s*\d+(?:[.,]\d+)?/i)?.[0];
@@ -107,7 +107,7 @@ export function preserveAdDetails(p,input){
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
   if(!text)text=offer&&offer.length<=90?offer:ad.text;
   if(price&&(!canonical(text).includes(canonical(price))||unit&&!canonical(text).includes(canonical(unit))||conditions.some(c=>!canonical(text).includes(canonical(c))))){
-   if(rawOffer.length<=90)text=rawOffer;
+   if(rawOffer.length<=copyLimit)text=rawOffer;
    else throw fail(502,'De prijsvoorwaarden passen niet in deze korte advertentie. Verkort het aanbod met behoud van tarief, eenheid en voorwaarden.');
   }
   const suppliedCta=ad.cta.trim();

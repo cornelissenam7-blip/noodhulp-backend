@@ -37,7 +37,7 @@ export function registerMarketingWorkflow(app,{json,env,identity,db,requireProdu
   generationLimits.set(u.id,{count:(bucket?.count||0)+1,until:bucket?.until||now+3600000});
   try{const saved=await credits.run(u.id,step,requestId,async()=>{const result=await generateAgent(input,{env,fetchImpl});const current=await load(u,p.id);if(current.revision!==running.revision)throw fail(409,'Project gewijzigd tijdens de aanvraag. Controleer de status.');return save(u,finishWorkflowStep(current,step,requestId,result),current.revision+1);});reply(res,saved);}
   catch(e){
-   const current=await load(u,p.id);if(current.revision===running.revision){const failed={...current,steps:{...current.steps,[step]:{status:'failed',message:'Deze stap is niet bevestigd. Bekijk de status voordat je opnieuw probeert.'}},attempts:current.attempts.map(a=>a.id===requestId?{...a,status:'uncertain'}:a)};await save(u,failed,current.revision+1);}
+   const current=await load(u,p.id);if(current.revision===running.revision){const known=[400,402,403,429,502].includes(e.status),failed={...current,steps:{...current.steps,[step]:{status:'failed',message:known?e.message:'Deze stap is niet bevestigd. Bekijk de status voordat je opnieuw probeert.'}},attempts:current.attempts.map(a=>a.id===requestId?{...a,status:known?'failed':'uncertain'}:a)};await save(u,failed,current.revision+1);}
    throw e;
   }
  }));
