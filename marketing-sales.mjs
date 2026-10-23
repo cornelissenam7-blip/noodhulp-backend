@@ -2,11 +2,15 @@ import {createHmac,timingSafeEqual,createHash} from 'node:crypto';
 import {readTracking} from './tracking-links.mjs';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 export function salesSignature(raw,timestamp,secret){return createHmac('sha256',secret).update(timestamp+'.'+raw).digest('hex');}
-export function verifySale(raw,headers,{shops,env,now=Date.now()}){
+export function verifyShop(raw,headers,{shops,now=Date.now()}){
  const shop=shops[headers['x-amcinova-shop']],stamp=headers['x-amcinova-timestamp'],signature=headers['x-amcinova-signature'];
- if(!shop?.secret||!/^\d{10,13}$/.test(stamp||'')||Math.abs(now-Number(stamp)*1000)>300000)throw fail(401,'Ongeldige winkelbevestiging.');
+ if(!shop?.secret||!/^\d{10}$/.test(stamp||'')||!/^[a-f0-9]{64}$/.test(signature||'')||Math.abs(now-Number(stamp)*1000)>300000)throw fail(401,'Ongeldige winkelbevestiging.');
  const expected=Buffer.from(salesSignature(raw,stamp,shop.secret)),actual=Buffer.from(signature||'');
  if(expected.length!==actual.length||!timingSafeEqual(expected,actual))throw fail(401,'Ongeldige winkelbevestiging.');
+ return shop;
+}
+export function verifySale(raw,headers,{shops,env,now=Date.now()}){
+ const shop=verifyShop(raw,headers,{shops,now});
  let b;try{b=JSON.parse(raw);}catch{throw fail(400,'Ongeldige bestelling.');}
  const allowed=['orderId','revision','paidCents','refundedCents','currency','test','token','consent'];
  if(Object.keys(b).some(k=>!allowed.includes(k))||!/^\d{1,20}$/.test(b.orderId)||!Number.isSafeInteger(b.revision)||b.revision<1||b.revision>2147483647||!Number.isSafeInteger(b.paidCents)||b.paidCents<0||b.paidCents>1000000000||!Number.isSafeInteger(b.refundedCents)||b.refundedCents<0||b.refundedCents>b.paidCents||b.currency!=='EUR'||typeof b.test!=='boolean'||b.consent!==true)throw fail(400,'Ongeldige verkoopgegevens.');
@@ -19,6 +23,7 @@ export function salesReport(events){const orders=new Map();for(const e of events
 // store.putUnique MUST atomically persist id and reject conflicting payloads; return false for exact duplicates.
 // store.list MUST enforce owner filtering in storage. Do not use a process-local Map in production.
 export function registerMarketingSales(app,{json,shops,env,store,identity,wrap,requireProduct}){
+ app.post('/api/marketing/sales/check',json({limit:'1kb',verify(req,_res,buffer){req.salesRaw=buffer.toString('utf8');}}),async(req,res)=>{try{verifyShop(req.salesRaw,req.headers,{shops});if(req.body?.check!==true||Object.keys(req.body).length!==1)throw fail(400,'Ongeldige verbindingscontrole.');res.json({ok:true,connected:true,mode:'connection-check',paymentVerified:false});}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Verbindingscontrole niet beschikbaar.'});}});
  app.post('/api/marketing/sales',json({limit:'8kb',verify(req,_res,buffer){req.salesRaw=buffer.toString('utf8');}}),async(req,res)=>{try{const event=verifySale(req.salesRaw,req.headers,{shops,env});const inserted=await store.putUnique(event);res.json({ok:true,duplicate:inserted===false});}catch(e){res.status(e.status||503).json({ok:false,error:e.status?e.message:'Opslaan tijdelijk niet beschikbaar.'});}});
  app.get('/api/customer/marketing-sales',wrap(async(req,res)=>{const user=await identity(req);await requireProduct(user,'campaign');const events=await store.list(user.id);res.json({ok:true,limited:events.limited===true,totals:salesReport(events),campaigns:salesByCampaign(events),events});}));
 }

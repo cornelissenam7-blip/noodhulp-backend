@@ -19,7 +19,15 @@ async function render(project){
    const image=el('img');image.src=poster;image.alt='Advertentievoorbeeld '+v.headline;card.append(image);const save=el('button','Afbeelding downloaden');save.onclick=()=>download(poster,'amcinova-'+v.id+'.jpg');card.append(save);
   }
   const details=el('details');details.append(el('summary',v.requiresVideoRender?'Videoscript en begeleidende tekst':'Berichttekst'),el('pre',v.caption));card.append(details);
-  if(v.requiresVideoRender)card.append(el('p','Videoscript gereed; video en eventuele stem zijn nog niet gemaakt of goedgekeurd.'));
+  if(v.requiresVideoRender){
+   card.append(el('p','Videoscript gereed. Maak hieronder een stille video voor de technische privéproef. Een ingesproken verkoopvideo vraagt eerst een goedgekeurde luisterproef.'));
+   const videoButton=el('button','Maak stille proefvideo (15 seconden)');videoButton.onclick=()=>run(async()=>{
+    context.status('Stille proefvideo opnemen… Houd dit tabblad ongeveer 15 seconden open.');
+    const blob=await window.AmcinovaMarketingVideo.render({image:poster,headline:v.headline,company:project.name,destinationURL:project.brief.website});
+    const player=el('video');player.controls=true;player.muted=true;player.preload='metadata';player.style.width='100%';player.src=URL.createObjectURL(blob);card.append(player);
+    const save=el('button','Proefvideo downloaden');save.onclick=()=>blobDownload(blob,'amcinova-'+v.id+'-prive.webm');card.append(save);context.status('Stille proefvideo gemaakt. Controleer het beeld vóór een privé-upload.');
+   });card.append(videoButton);
+  }
   for(const warning of v.warnings||[])card.append(el('small',warning));
   const link=el('a','Open deze proefroute naar de webshop');link.href=v.trackingURL;link.target='_blank';link.rel='noopener noreferrer';card.append(link);
  }

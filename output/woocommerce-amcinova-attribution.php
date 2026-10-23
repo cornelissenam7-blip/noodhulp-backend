@@ -17,6 +17,8 @@ add_action('template_redirect',function(){
  if(strlen($token)>1800||!preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/D',$token))return;
  WC()->session->set('amc_campaign',['token'=>$token,'until'=>time()+DAY_IN_SECONDS]);
  WC()->session->set_customer_session_cookie(true);
+ // Explicit consent: register only the signed campaign marker, never customer details.
+ if(defined('AMC_SALES_ENDPOINT'))wp_remote_post(preg_replace('#/api/marketing/sales$#','/api/tracking/event',AMC_SALES_ENDPOINT),['timeout'=>8,'redirection'=>0,'headers'=>['Content-Type'=>'application/json'],'body'=>wp_json_encode(['token'=>$token,'type'=>'visit','eventId'=>wp_generate_uuid4(),'page'=>home_url('/'),'consent'=>true])]);
  wp_safe_redirect(remove_query_arg('amc_track'));exit;
 });
 function amc_attach_campaign($order){
@@ -51,3 +53,15 @@ add_action('amc_send_sale',function($id){
 });
 // Automatically display the consent form on a candidate signed link, without storing attribution.
 add_action('wp_footer',function(){if(!empty($_GET['amc_track'])&&function_exists('WC')&&WC()->session){$v=WC()->session->get('amc_campaign');if(!is_array($v)||($v['until']??0)<time())echo '<aside aria-label="Campagnemeting">'.do_shortcode('[amcinova_campaign_consent]').'</aside>';}});
+
+// Private connection diagnostic. This never creates an order or a sales receipt.
+add_action('admin_menu',function(){add_submenu_page('woocommerce','Amcinova campagnemeting','Amcinova campagnemeting','manage_woocommerce','amcinova-campagnemeting',function(){
+ if(!current_user_can('manage_woocommerce'))return;
+ echo '<div class="wrap"><h1>Amcinova campagnemeting</h1><p>De marketingproef blijft privé. Alleen na uitdrukkelijke toestemming worden campagne en betaalde bestelling gekoppeld. Klantnamen en e-mailadressen worden niet doorgestuurd.</p>';
+ if(!empty($_POST['amc_check_connection'])){check_admin_referer('amc_check_connection');$body=wp_json_encode(['check'=>true]);$ts=(string)time();
+  $r=wp_remote_post(AMC_SALES_ENDPOINT.'/check',['timeout'=>15,'redirection'=>0,'headers'=>['Content-Type'=>'application/json','X-Amcinova-Shop'=>AMC_SALES_SHOP,'X-Amcinova-Timestamp'=>$ts,'X-Amcinova-Signature'=>hash_hmac('sha256',$ts.'.'.$body,AMC_SALES_SECRET)],'body'=>$body]);
+  $data=is_wp_error($r)?[]:json_decode(wp_remote_retrieve_body($r),true);$ok=!is_wp_error($r)&&wp_remote_retrieve_response_code($r)===200&&!empty($data['connected']);
+  echo '<div class="notice '.($ok?'notice-success':'notice-error').'"><p>'.($ok?'Verbinding met Amcinova bevestigd. Dit is nog geen bewijs van een betaalde proefbestelling.':'Verbinding niet bevestigd. Controleer de serverinstelling en probeer later opnieuw.').'</p></div>';
+ }
+ echo '<form method="post">';wp_nonce_field('amc_check_connection');echo '<button class="button button-primary" name="amc_check_connection" value="1">Controleer serververbinding</button></form></div>';
+});});
