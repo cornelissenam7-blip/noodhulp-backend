@@ -1,3 +1,4 @@
+import {directSales} from './marketing-conversion.mjs';
 // Repair concrete unsupported marketing embellishments using supplied facts.
 // No extra model call, fabricated business facts or generic successful-plan fallback.
 const unsupported=/\b(?:professioneel|professionele|professional|professionals|expert|experts|expertise|vakkundig|vakkundige|deskundig|deskundige|ervaren|experienced|betaalbaar|betaalbare|affordable|betrouwbaar|betrouwbare|reliable|gratis|free|vrijblijvend(?:e)?|no-obligation|snelle|snel|fast|quick|topconditie|topvorm|top-notch|perfect|perfecte|beste|best|veilig|veilige|veiligheid|safe|safety|geweldig|geweldige|top|kwaliteit|quality|zonder zorgen|met zorg en aandacht|effici[eë]nt|efficient)\b/gi;
@@ -34,6 +35,7 @@ export function repairFactualCopy(p,input){
   if(!/Advertentievoorstel|Ad proposal/i.test(s.heading))return s;
   const embellishment=[...s.text.matchAll(unsupported)].some(m=>!new RegExp('\\b'+escape(m[0])+'\\b','i').test(facts))||/\b(?:expertise|effici[eë]nt|op maat)\b/i.test(s.text)&&! /\b(?:expertise|effici[eë]nt|op maat)\b/i.test(facts);
   if(!embellishment||!offer)return {...s,text:clean(s.text)};
+  if(directSales(input))return {...s,text:fields.language==='en'?`Proposed variant A: ${offer.split(/(?<=[.!?])\s+/)[0]} View the products.\nProposed variant B: ${offer.split(/(?<=[.!?])\s+/)[0]} Order online.\nOnly the call to action changes; no winner has been measured.`:`Voorstel variant A: ${offer.split(/(?<=[.!?])\s+/)[0]} Bekijk de producten.\nVoorstel variant B: ${offer.split(/(?<=[.!?])\s+/)[0]} Bestel online.\nAlleen de oproep tot actie verandert; er is nog geen winnaar gemeten.`};
   const literalOffer=offer.split(/(?<=[.!?])\s+/)[0];
   return {...s,text:fields.language==='en'?`Proposed variant A: ${literalOffer} Request more information.\nProposed variant B: ${literalOffer} Discuss the possibilities.\nCompare only the call to action; keep the message, audience, image, landing page, budget allocation and evaluation period the same. No winner has been measured.`:`Voorstel variant A: ${literalOffer} Vraag meer informatie aan.\nVoorstel variant B: ${literalOffer} Bespreek de mogelijkheden.\nVergelijk alleen de oproep tot actie; houd basistekst, doelgroep, beeld, landingspagina, budgetverdeling en meetperiode gelijk. Er is nog geen winnaar gemeten.`};
  });
