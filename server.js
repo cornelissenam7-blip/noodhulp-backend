@@ -1,3 +1,4 @@
+import { guardTapShutdown } from "./guardtap-shutdown.mjs";
 import {registerKrnnContentReport} from "./krnn-content-report.mjs";
 import {registerConsultationRoutes} from './consultation-routes.mjs';
 import {registerConsultationChat} from './consultation-chat.mjs';
@@ -317,6 +318,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use(guardTapShutdown);
 registerMetaDmRoutes(app,{raw:express.raw,env:process.env,adminDb:supabaseRequest});
 startMetaDmRetention({env:process.env,adminDb:supabaseRequest});
 startMetaLoginRetention({env:process.env,adminDb:supabaseRequest});
