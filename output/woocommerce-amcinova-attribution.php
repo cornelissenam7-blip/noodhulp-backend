@@ -65,3 +65,10 @@ add_action('admin_menu',function(){add_submenu_page('woocommerce','Amcinova camp
  }
  echo '<form method="post">';wp_nonce_field('amc_check_connection');echo '<button class="button button-primary" name="amc_check_connection" value="1">Controleer serververbinding</button></form></div>';
 });});
+
+// Optional book updates remain in this shop; no email is sent or exported by this plugin.
+add_action('woocommerce_init',function(){if(function_exists('woocommerce_register_additional_checkout_field'))woocommerce_register_additional_checkout_field([
+ 'id'=>'amcinova/boekupdates','label'=>'Ja, ik ontvang graag per e-mail updates over nieuwe boeken en producten van Kleine Ontdekkers. Niet verplicht; afmelden kan via shop@amcinova.com.',
+ 'location'=>'order','type'=>'checkbox','required'=>false,
+]);});
+add_action('woocommerce_admin_order_data_after_billing_address',function($order){$yes=$order->get_meta('_wc_other/amcinova/boekupdates');echo '<p><strong>Boekupdates:</strong> '.($yes?'Toestemming gegeven':'Geen toestemming').'</p>';});

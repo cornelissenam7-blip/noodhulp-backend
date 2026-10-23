@@ -1,6 +1,7 @@
 import {lookup} from 'node:dns/promises';
 import {get} from 'node:https';
 import {isIP} from 'node:net';
+import {extractWebsiteProducts} from './marketing-catalog.mjs';
 const fail=m=>Object.assign(Error(m),{status:400});
 export function publicIPv4(ip){
  if(isIP(ip)!==4)return false;const [a,b,c]=ip.split('.').map(Number);
@@ -39,7 +40,7 @@ export async function previewWebsite(raw,{resolve=lookup,request=requestHTML}={}
     images.push({url:target.href,alt:websiteText(alt).slice(0,200)});if(images.length===12)break;
    }catch{}
   }
-  return {requestedURL:original,sourceURL:u.href,fetchedAt:new Date().toISOString(),title,text,links,images,confirmed:false,note:'Gelezen brontekst, nog niet bevestigd. Controleer en selecteer de feiten voordat je ze in je bedrijfsprofiel gebruikt.'};
+  return {requestedURL:original,sourceURL:u.href,fetchedAt:new Date().toISOString(),title,text,links,images,products:extractWebsiteProducts(response.html,u.href),confirmed:false,note:'Gelezen brontekst, nog niet bevestigd. Controleer en selecteer de feiten voordat je ze in je bedrijfsprofiel gebruikt.'};
  }throw fail('De website verwijst te vaak door.');
 }
 function requestImage(u,address){return new Promise((resolve,reject)=>{

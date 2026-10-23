@@ -26,11 +26,11 @@ export function newWorkflow(input,now=()=>new Date().toISOString()){
 }
 export function workflowFromWebsite(source,options={}) {
  if(!source?.sourceURL||typeof source.text!=='string'||source.text.length<30)throw fail(400,'Geen bruikbare websiteanalyse ontvangen.');
- const website=new URL(source.sourceURL),company=source.title?.slice(0,140)||website.hostname;
- const p=newWorkflow({name:company,brief:{company,website:website.href,
-  offer:'Het aanbod op '+website.href+'. Gebruik alleen de hieronder aangetroffen producten, prijzen en eigenschappen.',
+ const website=new URL(source.sourceURL),company=source.title?.slice(0,140)||website.hostname,focus=source.products?.[0];
+ const p=newWorkflow({name:company,brief:{company,website:focus?.landingURL||website.href,
+  offer:focus?'Voorgestelde eerste productcampagne: '+focus.name+'. Aangetroffen productkaart: '+focus.text:'Het aanbod op '+website.href+'. Gebruik alleen de hieronder aangetroffen producten, prijzen en eigenschappen.',
   facts:source.text.slice(0,4800)+'\nAangetroffen links (niet door ons gevolgd):\n'+[...(source.links||[])].sort((a,b)=>Number(/[?&]add-to-cart=|\/(?:checkout|afrekenen)/i.test(b.url))-Number(/[?&]add-to-cart=|\/(?:checkout|afrekenen)/i.test(a.url))).slice(0,8).map(l=>l.label+': '+l.url).join('\n').slice(0,1100),audience:'Laat de campagne-agent een doelgroep voorstellen op basis van het aangetroffen aanbod.',
-  goal:'Maak van deze website een verkoopproces: analyseer aanbod en kooproute, kies een concrete doelgroep, maak een samenhangende campagne, advertentieconcepten en promotieplan en verbeter alleen de noodzakelijke landingspagina. Richt op betaalde klanten. Maak onderscheid tussen aangetroffen feiten, aannames en nog te controleren punten.',
+  goal:'Maak van deze website een verkoopproces: analyseer aanbod en kooproute, kies een concrete doelgroep, maak een samenhangende campagne, advertentieconcepten en promotieplan en verbeter alleen de noodzakelijke landingspagina. Richt op betaalde klanten. Maak onderscheid tussen aangetroffen feiten, aannames en nog te controleren punten.'+(focus?' Werk voor de eerste proef uitsluitend '+focus.name+' uit. Onderscheid de koper van de gebruiker van het product. Neem een leeftijd, doelgroep en productkenmerken uitsluitend letterlijk van de productkaart over. Andere boeken zijn geen uitbreiding van dit aanbod.':''),
   budget:'Geen betaald advertentiebudget toegekend. Bereid organische promotie voor; stel betaalde campagnes alleen als voorstel op.',
   channels:options.channels||['YouTube','Facebook','Instagram'],language:options.language||'nl'}});
  return {...p,automaticDrafts:true,source:{sourceURL:source.sourceURL,fetchedAt:source.fetchedAt,confirmed:false,note:'Website-inhoud is bronmateriaal; de eigenaar heeft de feiten en voorstellen nog niet goedgekeurd.'}};

@@ -18,6 +18,7 @@ async function runChain(){
   $('status').textContent=label+' werkt aan je website. De vorige agentresultaten worden automatisch meegenomen.';
   render(await call('/'+project.id+'/steps/'+step+'/run',{revision:project.revision,requestId:crypto.randomUUID()}));
  }
+ if(!project.delivery){$('status').textContent='De agents zijn klaar. Productbeelden en proeflinks worden nu voorbereid…';render(await call('/'+project.id+'/package',{revision:project.revision}));}
  $('status').textContent='Je verkoopplan is voorbereid. Bekijk de analyse, advertentieconcepten, promotie en landingspagina hieronder. Er is nog niets gepubliceerd of aan advertentiebudget besteed.';
  }catch(e){$('status').textContent=e.message+' Het opgeslagen project blijft beschikbaar; start een onzekere aanvraag niet opnieuw.';}finally{lock(false);}
 }
