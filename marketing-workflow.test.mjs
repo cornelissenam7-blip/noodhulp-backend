@@ -48,11 +48,11 @@ test('one URL feeds all agents without pretending owner approval or discarding c
  p=approveWorkflowStep(p,'campaign');assert.equal(p.steps.admaker.status,'draft');
  p=startWorkflowStep(p,'campaign',randomUUID());assert.equal(p.steps.admaker.status,'pending');
 });
-function harness(){
- const routes=new Map(),rows=[],u={id:randomUUID()},inputs=[],charges=[];let calls=0;
+function harness(options={}){
+ const routes=new Map(),rows=[],u={id:randomUUID()},inputs=[],charges=[];let calls=0,rejected=false;
  const app={post:(path,...handlers)=>routes.set('POST '+path,handlers.at(-1)),get:(path,...handlers)=>routes.set('GET '+path,handlers.at(-1))};
  const db=async(user,table,q,body)=>{assert.equal(table,'amcinova_customer_documents');if(body){if(rows.some(r=>r.user_id===body.user_id&&r.project_id===body.project_id&&r.revision===body.revision))throw Object.assign(Error('conflict'),{status:409});rows.push(structuredClone(body));return [body];}const project=q.match(/project_id=eq\.([^&]+)/)?.[1];return rows.filter(r=>r.user_id===user.id&&r.project_id===project).sort((a,b)=>b.revision-a.revision).slice(0,1);};
- registerMarketingWorkflow(app,{json:express.json,env:{AMCINOVA_MARKETING_WORKFLOW_ENABLED:'true',MARKETING_WORKFLOW_SECRET:'test-secret'},identity:async req=>req.user||u,db,previewSite:async website=>({sourceURL:website,title:'Kleine Ontdekkers',fetchedAt:'2026-10-23T10:00:00Z',text:'Digitale ontdekboeken voor kinderen, samen met ouders en leerkrachten.'}),requireProduct:async(user,product)=>{if(product==='admaker'&&user.denied)throw Object.assign(Error('denied'),{status:403});},wrap:fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.message});}},credits:{run:async(user,product,id,fn)=>{charges.push(id);return fn();}},generateAgent:async input=>{calls++;inputs.push(input);return {summary:'Strategy '+calls,sections:[],ads:[],posts:[]};}});
+ registerMarketingWorkflow(app,{json:express.json,env:{AMCINOVA_MARKETING_WORKFLOW_ENABLED:'true',MARKETING_WORKFLOW_SECRET:'test-secret'},identity:async req=>req.user||u,db,previewSite:async website=>({sourceURL:website,title:'Kleine Ontdekkers',fetchedAt:'2026-10-23T10:00:00Z',text:'Digitale ontdekboeken voor kinderen, samen met ouders en leerkrachten.'}),requireProduct:async(user,product)=>{if(product==='admaker'&&user.denied)throw Object.assign(Error('denied'),{status:403});},wrap:fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.status||503).json({error:e.message});}},credits:{run:async(user,product,id,fn)=>{charges.push(id);return fn();}},generateAgent:async input=>{calls++;if(options.rejectOnce&&!rejected){rejected=true;throw Object.assign(Error('Bekende uitvoervalidatie mislukt'),{status:502});}inputs.push(input);return {summary:'Strategy '+calls,sections:[],ads:[],posts:[]};}});
  async function request(method,route,body={},params={},user){const res={statusCode:200,status(n){this.statusCode=n;return this;},json(data){this.data=data;return this;}};await routes.get(method+' /api/customer/marketing-projects'+route)({body,params,user},res);return res;}
  return {request,rows,inputs,charges,u,get calls(){return calls;}};
 }
@@ -78,4 +78,11 @@ test('URL-only endpoint persists source and the entire automatic draft chain und
  for(const step of workflowSteps){r=await h.request('POST','/:id/steps/:step/run',{revision:p.revision,requestId:randomUUID()},{id:p.id,step});assert.equal(r.statusCode,200);p=r.data.project;}
  assert.equal(h.calls,4);assert.equal(h.charges.length,4);assert.ok(workflowSteps.every(s=>p.steps[s].status==='draft'));assert.equal(p.confirmed,false);
  assert.equal((await h.request('GET','/:id',{}, {id:p.id},{id:randomUUID()})).statusCode,404);
+});
+
+test('known provider validation failure is terminal failed and an explicit new attempt can recover',async()=>{
+ const h=harness({rejectOnce:true});let r=await h.request('POST','/from-website',{website:'https://shop.example.com/'}),p=r.data.project;
+ r=await h.request('POST','/:id/steps/:step/run',{revision:p.revision,requestId:randomUUID()},{id:p.id,step:'campaign'});assert.equal(r.statusCode,502);
+ r=await h.request('GET','/:id',{}, {id:p.id});p=r.data.project;assert.equal(p.attempts.at(-1).status,'failed');assert.equal(p.steps.campaign.status,'failed');
+ r=await h.request('POST','/:id/steps/:step/run',{revision:p.revision,requestId:randomUUID()},{id:p.id,step:'campaign'});assert.equal(r.statusCode,200);assert.equal(r.data.project.steps.campaign.status,'draft');assert.equal(h.calls,2);
 });

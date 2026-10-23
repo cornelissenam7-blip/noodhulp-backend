@@ -52,7 +52,7 @@ add_action('amc_send_sale',function($id){
  $attempt=(int)$o->get_meta('_amc_sales_attempts');if($attempt<8&&function_exists('as_schedule_single_action')){$o->update_meta_data('_amc_sales_attempts',$attempt+1);$o->save();as_schedule_single_action(time()+min(3600,60*(2**$attempt)),'amc_send_sale',['order_id'=>$id],'amcinova');}
 });
 // Automatically display the consent form on a candidate signed link, without storing attribution.
-add_action('wp_footer',function(){if(!empty($_GET['amc_track'])&&function_exists('WC')&&WC()->session){$v=WC()->session->get('amc_campaign');if(!is_array($v)||($v['until']??0)<time())echo '<aside aria-label="Campagnemeting">'.do_shortcode('[amcinova_campaign_consent]').'</aside>';}});
+add_action('wp_footer',function(){if(!empty($_GET['amc_track'])&&function_exists('WC')&&WC()->session){$v=WC()->session->get('amc_campaign');if(!is_array($v)||($v['until']??0)<time()||!hash_equals((string)($v['token']??''),sanitize_text_field(wp_unslash($_GET['amc_track']))))echo '<aside aria-label="Campagnemeting">'.do_shortcode('[amcinova_campaign_consent]').'</aside>';}});
 
 // Private connection diagnostic. This never creates an order or a sales receipt.
 add_action('admin_menu',function(){add_submenu_page('woocommerce','Amcinova campagnemeting','Amcinova campagnemeting','manage_woocommerce','amcinova-campagnemeting',function(){

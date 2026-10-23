@@ -34,6 +34,14 @@ async function render(project){
  const exportButton=el('button','Privé pakket downloaden (HTML)');exportButton.onclick=()=>run(async()=>{
   const session=await window.AmcinovaSession.get(),response=await fetch(context.api+'/api/customer/marketing-projects/'+project.id+'/package/export',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});if(!response.ok)throw Error('Export kon niet worden opgehaald.');blobDownload(await response.blob(),'amcinova-prive-proefpakket.html');
  });host.append(exportButton);
+ const channels=el('section'),checkChannels=el('button','Controleer gekoppelde publicatiekanalen');checkChannels.onclick=()=>run(async()=>{
+  const session=await window.AmcinovaSession.get(),r=await fetch(context.api+'/api/customer/meta/publishing/pages?product=admaker',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store',signal:AbortSignal.timeout(20000)}),data=await r.json();
+  channels.replaceChildren(el('h3','Gekoppelde kanalen — alleen controleren'));
+  if(!r.ok||!data.ok)throw Error(data.error||'Kanaalkoppeling kon niet worden gecontroleerd.');
+  for(const page of data.pages||[])channels.append(el('p',page.pageName+' · Facebook '+(page.facebook?'rechten aanwezig':'rechten ontbreken')+' · Instagram '+(page.instagramAllowed&&page.instagram?'rechten aanwezig':'koppeling of rechten ontbreken')));
+  if(!data.pages?.length)channels.append(el('p','Nog geen Facebook- of Instagram-pagina gekoppeld aan dit account.'));
+  channels.append(el('p','Kies vóór publicatie de juiste bedrijfspagina voor dit project. Een bestaande koppeling betekent geen toestemming om dit boek daarop te publiceren.'),el('p','YouTube: de stille video kan eerst privé worden gecontroleerd. Een automatische uploadkoppeling is nog niet ingesteld.'));
+ });host.append(checkChannels,channels);
  const report=el('section'),refresh=el('button','Controleer verkopen uit deze campagne');refresh.onclick=()=>run(()=>results(report));host.append(refresh,report);await results(report);
 }
 window.AmcinovaDelivery={configure:options=>{context=options;},render};})();

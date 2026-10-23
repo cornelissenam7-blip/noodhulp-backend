@@ -104,6 +104,6 @@ test('long social offer preserves literal VAT conditions without the 90 characte
  const {preserveAdDetails}=await import('./agent-ai.mjs');
  const offer='Digitale ontdekboeken voor ouders en kinderen. Met opdrachten om buiten uit te voeren en zelf te printen. € 19,57 incl. 9% btw.';
  const p=preserveAdDetails({ads:[{channel:'Facebook',headline:'Ontdekboek',text:'Digitale ontdekboeken.',cta:'Bekijk het boek.'}]},{task:'ads',fields:{'ad-format':'social-post','ad-channel':'Facebook','ad-offer':offer}});
- assert.equal(p.ads[0].text,offer);
+ assert.match(p.ads[0].text,/Digitale ontdekboeken/);assert.match(p.ads[0].text,/19,57 incl\. 9% btw/);
  assert.throws(()=>preserveAdDetails({ads:[{channel:'Google',headline:'Ontdekboek',text:'Digitale ontdekboeken.',cta:'Bekijk het boek.'}]},{task:'ads',fields:{'ad-format':'search','ad-channel':'Google','ad-offer':offer}}),/prijsvoorwaarden/);
 });

@@ -107,7 +107,9 @@ export function preserveAdDetails(p,input){
   let text=ad.text.split(/(?<=[.!?])\s+/).filter(sentence=>!action.test(sentence.trim())).join(' ').trim();
   if(!text)text=offer&&offer.length<=90?offer:ad.text;
   if(price&&(!canonical(text).includes(canonical(price))||unit&&!canonical(text).includes(canonical(unit))||conditions.some(c=>!canonical(text).includes(canonical(c))))){
-   if(rawOffer.length<=copyLimit)text=rawOffer;
+   const missing=[price,unit,...conditions].filter(Boolean).filter(value=>!canonical(text).includes(canonical(value))).join(' ');
+   if(isSocialPost(input)&&text.length+missing.length+2<=copyLimit)text=text+' '+missing+'.';
+   else if(rawOffer.length<=copyLimit)text=rawOffer;
    else throw fail(502,'De prijsvoorwaarden passen niet in deze korte advertentie. Verkort het aanbod met behoud van tarief, eenheid en voorwaarden.');
   }
   const suppliedCta=ad.cta.trim();
