@@ -38,8 +38,8 @@ test('untrusted customer document saleEvent never counts as verified revenue',as
 
 
 test('foreign-key database conflict is not misreported as duplicate sale',async()=>{
- let reads=0;const store=customerDocumentsSalesStore(async(_t,r)=>{if(r.method==='GET'){reads++;return [];}throw Error('Supabase POST failed: 409 {"code":"23503","message":"redacted"}');},{proofSecret:'server-secret-not-shop-secret'});
- await assert.rejects(()=>store.putUnique(event()),e=>e.status===503&&/23503/.test(e.message));assert.equal(reads,0);
+ let reads=0;const store=customerDocumentsSalesStore(async(_t,r)=>{if(r.method==='GET'){reads++;return [];}throw Error('Supabase POST failed: 409 {"code":"23503","message":"redacted","details":"Key (user_id)=(private) is not present"}');},{proofSecret:'server-secret-not-shop-secret'});
+ await assert.rejects(()=>store.putUnique(event()),e=>e.status===503&&/23503, veld user_id/.test(e.message)&&!e.message.includes("private"));assert.equal(reads,0);
 });
 test('missing conflicting row is an unavailable store, not a contradictory order',async()=>{
  const store=customerDocumentsSalesStore(async(_t,r)=>{if(r.method==='GET')return [];throw Error('409 duplicate');},{proofSecret:'server-secret-not-shop-secret'});await assert.rejects(()=>store.putUnique(event()),e=>e.status===503&&/zonder bestaande/.test(e.message));
