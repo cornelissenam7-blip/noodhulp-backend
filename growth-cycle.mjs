@@ -1,5 +1,14 @@
 import {createHmac} from 'node:crypto';
 const day=86400000;
+export function normalizeExperiment(e){
+ if(!e||e.version!==1||e.available!==true)return {available:false};
+ const ids=['book-label-v1','book-next-step-v1'],states=['running','observing','adopted','rejected','inconclusive','rolled-back'];
+ const reasons=['fixed-horizon-not-reached','source-incomplete','invalid-denominator','conversion-harm','insufficient-paid-results','higher-paid-conversion-with-revenue-guard','lower-paid-conversion','no-clear-paid-advantage','refund-revenue-guard'];
+ const date=x=>typeof x==='string'&&Number.isFinite(Date.parse(x));
+ if(!ids.includes(e.id)||!states.includes(e.status)||!reasons.includes(e.reason)||!['startedAt','enrollmentEndsAt','decisionAt'].every(k=>date(e[k]))||Date.parse(e.enrollmentEndsAt)-Date.parse(e.startedAt)!==14*day||Date.parse(e.decisionAt)-Date.parse(e.startedAt)!==28*day||![e.stable?.label,e.stable?.note].every(v=>typeof v==='boolean'))throw Error('growth-invalid-experiment');
+ const summary=s=>{if(!s||typeof s.complete!=='boolean'||typeof s.needsReview!=='boolean'||!/^\d{4}-\d{2}-\d{2}$/.test(s.through||''))throw Error('growth-invalid-experiment-summary');const arms={};for(const arm of ['a','b']){const r=s.arms?.[arm];if(!r||!['enrolled','buyers','paidOrders','netCents'].every(k=>Number.isSafeInteger(r[k])&&r[k]>=0&&r[k]<=1e9)||r.buyers>r.enrolled||r.buyers>r.paidOrders)throw Error('growth-invalid-experiment-count');arms[arm]=Object.fromEntries(['enrolled','buyers','paidOrders','netCents'].map(k=>[k,r[k]]));}return {complete:s.complete,needsReview:s.needsReview,through:s.through,arms};};
+ return {version:1,available:true,id:e.id,status:e.status,reason:e.reason,startedAt:e.startedAt,enrollmentEndsAt:e.enrollmentEndsAt,decisionAt:e.decisionAt,lastCheckedAt:date(e.lastCheckedAt)?e.lastCheckedAt:null,stable:{label:e.stable.label,note:e.stable.note},summary:summary(e.summary),mature:summary(e.mature),controllerError:!!e.controllerError,history:Array.isArray(e.history)?e.history.slice(-2).filter(h=>ids.includes(h.id)&&states.includes(h.status)&&reasons.includes(h.reason)).map(h=>({id:h.id,status:h.status,reason:h.reason})):[],scope:'consented-browser-sessions-not-unique-people'};
+}
 export function normalizeAttribution(a){
  if(!a)return {available:false,reason:'Nog geen aankoopkoppeling ontvangen.'};
  if(a.version!==1||a.model!=='consented-package-origin-7-days'||a.complete!==true||a.needsReview)return {available:false,reason:'Aankoopkoppeling ontbreekt of vereist controle; geen nulmeting.'};
@@ -30,7 +39,7 @@ export function normalizeCycle(data,{start,end}){
  const startedDay=startedAt?new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(startedAt)):null;
  const attribution=normalizeAttribution(c.attribution),attributionDay=attribution.startedAt?new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(attribution.startedAt)):null;
  attribution.measured=attribution.available&&!!attributionDay&&start>attributionDay;
- return {start,end,metrics,currencies,attribution,startedAt,measured:!!startedDay&&start>startedDay,complete:true,source:'signed-webshop-aggregates',fetchedAt:data.fetchedAt};
+ return {start,end,metrics,currencies,attribution,experiment:normalizeExperiment(c.experiment),startedAt,measured:!!startedDay&&start>startedDay,complete:true,source:'signed-webshop-aggregates',fetchedAt:data.fetchedAt};
 }
 export async function readCycleWindow({secret,start,end},{fetcher=fetch,clock=Date.now}={}){
  if(typeof secret!=='string'||secret.length<24||![start,end].every(v=>/^\d{4}-\d{2}-\d{2}$/.test(v||''))||start>end||Date.parse(end)-Date.parse(start)>34*day||Date.parse(end)+day>clock())throw Error('growth-not-configured');
@@ -42,6 +51,8 @@ export function evaluateCycle(windows,now=Date.now()){
  const sorted=windows.filter(w=>w.complete).sort((a,b)=>a.end.localeCompare(b.end)),current=sorted.at(-1),prior=sorted.at(-2),m=current?.metrics||{},feedback={used:0,viewed:0,needsHelp:0,improvements:{},missions:{}};
  for(const [key,n]of Object.entries(m)){const f=/^feedback_(used|viewed)_([1-4])_(clear|help|unclear)_(none|instructions|space|duration|difficulty)$/.exec(key);if(!f)continue;feedback[f[1]]+=n;if(f[1]!=='used')continue;if(f[3]!=='clear')feedback.needsHelp+=n;feedback.improvements[f[4]]=(feedback.improvements[f[4]]||0)+n;feedback.missions[f[2]]=(feedback.missions[f[2]]||0)+n;}
  const actions=[];
+ const experiment=current?.experiment||{available:false};
+ if(experiment.available){const titles={running:'Eén gecontroleerde presentatietest loopt',observing:'Wacht op betaalde resultaten en terugbetalingen',adopted:'De beter presterende presentatie is behouden',rejected:'De testvariant is teruggedraaid',inconclusive:'Geen winnaar: onvoldoende of onduidelijke verkoopresultaten','rolled-back':'De presentatie is na terugbetalingen teruggedraaid'};actions.push({code:'experiment-'+experiment.status,priority:experiment.controllerError?1:2,title:titles[experiment.status],reason:experiment.id+' · '+experiment.reason,next:'De gedeelde testmotor wijzigt alleen vooraf begrensde boekteksten. Eén test tegelijk, vaste meetduur, minimaal 100 toegestane browsersessies per variant en twintig kopende sessies totaal. Prijzen, betaalroute en toestemmingskeuzes blijven buiten de test.'});}
  const attribution=current?.attribution;
  if(attribution?.available&&attribution.measured){const orders=attribution.currencies.reduce((s,c)=>s+c.paidOrders,0);actions.push({code:'package-attribution',priority:2,title:'Beoordeel verkopen via het proefpakket',reason:orders+' betaalde bestellingen met expliciete proefpakkettoestemming binnen zeven dagen. Terugbetalingen zijn verrekend.',next:orders<10?'Verzamel eerst meer gegevens. Kleine aantallen bewijzen geen winnaar of oorzakelijk effect.':'Vergelijk de boektotalen en feedback en test één verbetering tegelijk. Controleer vergelijkbare perioden en het aandeel bezoekers dat meetoestemming gaf; geen automatische uitgaven.'});}
  else if(attribution?.available)actions.push({code:'attribution-baseline',priority:2,title:'Aankoopkoppeling gestart',reason:'De aankoopkoppeling is beschikbaar, maar deze periode begon vóór de start van de meting.',next:'Wacht op volledige meetdagen. Oudere verkopen worden niet achteraf toegeschreven.'});
@@ -57,7 +68,7 @@ export function evaluateCycle(windows,now=Date.now()){
   else actions.push({code:'review-real-sales',priority:2,title:'Beoordeel echte webshopomzet',reason:paid+' betaalde webshopbestellingen ontvangen.',next:'Deze omzet is sitebreed. Schrijf haar pas aan het proefpakket toe als daarvoor afzonderlijk bewijs is; omzet is geen winst.'});
   if(!prior||(m.package_view||0)<100||feedback.used<10)actions.push({code:'baseline',priority:3,title:'Nog geen bewezen verbetering',reason:'Er zijn nog onvoldoende vergelijkbare gegevens.',next:'Behoud dezelfde vragen en meetdefinities en vergelijk twee afgeronde weken. Geen automatische uitgaven of winnaar.'});
  }
- return {version:1,campaign:'speurmaatjes-proefpakket-v1',host:'shop.amcinova.com',evaluatedAt:new Date(now).toISOString(),windows:sorted,current:current||null,prior:prior||null,feedback,actions:actions.sort((a,b)=>a.priority-b.priority),automatic:{aggregateRefresh:true,contextualStartHelp:true,budgetChanges:false,paidPublishing:false},notice:'Aankooptoeschrijving telt alleen de twee vervolgboeken, met expliciete toestemming, binnen zeven dagen en na terugbetalingen. Dit bewijst een gevolgde route, geen oorzakelijk effect. Sitebrede omzet en anonieme feedback blijven apart. Geen automatische budgetwijziging.'};
+ return {version:1,campaign:'speurmaatjes-proefpakket-v1',host:'shop.amcinova.com',evaluatedAt:new Date(now).toISOString(),windows:sorted,current:current||null,prior:prior||null,feedback,experiment,actions:actions.sort((a,b)=>a.priority-b.priority),automatic:{aggregateRefresh:true,contextualStartHelp:true,boundedPageTests:experiment.available,budgetChanges:false,paidPublishing:false},notice:'Aankooptoeschrijving telt alleen de twee vervolgboeken, met expliciete toestemming, binnen zeven dagen en na terugbetalingen. Dit bewijst een gevolgde route, geen oorzakelijk effect. Sitebrede omzet en anonieme feedback blijven apart. Geen automatische budgetwijziging.'};
 }
 export function registerGrowthCycle(app,{wrap,identity,requireProduct,env,fetcher=fetch,clock=Date.now}){
  let cached;
@@ -70,6 +81,6 @@ export function registerGrowthCycle(app,{wrap,identity,requireProduct,env,fetche
  app.get('/api/customer/growth-cycle',wrap(async(req,res)=>{const u=await identity(req);await requireProduct(u,'campaign');res.json({ok:true,cycle:await readForOwner(u)});}));
  return async(u,website)=>{
   if(u.id!==env.AMCINOVA_SHOP_SALES_OWNER||!/^https:\/\/shop\.amcinova\.com(?:\/|$)/.test(website||''))return null;
-  try{const c=await readForOwner(u);return {evaluatedAt:c.evaluatedAt,feedback:c.feedback,measurementWindows:c.windows.map(w=>({start:w.start,end:w.end,measured:w.measured,attribution:w.attribution})),actions:c.actions,notice:c.notice};}catch{return {notice:'De resultatenbron is nu niet bereikbaar. Claim geen gemeten resultaat of verbetering; behoud de eerdere uitgangspunten.'};}
+  try{const c=await readForOwner(u);return {evaluatedAt:c.evaluatedAt,feedback:c.feedback,experiment:c.experiment,measurementWindows:c.windows.map(w=>({start:w.start,end:w.end,measured:w.measured,attribution:w.attribution})),actions:c.actions,notice:c.notice};}catch{return {notice:'De resultatenbron is nu niet bereikbaar. Claim geen gemeten resultaat of verbetering; behoud de eerdere uitgangspunten.'};}
  };
 }
