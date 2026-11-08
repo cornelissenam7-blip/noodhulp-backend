@@ -1,6 +1,7 @@
 import {saveNumberedQuote} from './quote-numbering.mjs';
 import {registerCustomerMaterials} from './customer-materials.mjs';
 import {registerMarketingWorkflow} from './marketing-workflow-routes.mjs';
+import {registerGrowthCycle} from './growth-cycle.mjs';
 import {registerMarketingSales,customerDocumentsSalesStore} from './marketing-sales.mjs';
 import {registerTrackingCustomer} from './tracking-links.mjs';
 import {registerMetaCustomer} from './meta-customer.mjs';
@@ -71,6 +72,7 @@ export function registerCustomerRoutes(app,{json,env=process.env,fetchImpl=fetch
  const salesStore=typeof adminDb==='function'&&salesProof.length>=16?customerDocumentsSalesStore(adminDb,{proofSecret:salesProof}):null;
  if(salesStore)registerMarketingSales(app,{json,env,shops:env.AMCINOVA_SHOP_SALES_SECRET&&env.AMCINOVA_SHOP_SALES_OWNER?{'kleine-ontdekkers':{secret:env.AMCINOVA_SHOP_SALES_SECRET,owner:env.AMCINOVA_SHOP_SALES_OWNER,origin:'https://shop.amcinova.com'}}:{},store:salesStore,identity,wrap,requireProduct});
  registerMarketingWorkflow(app,{json,env,identity,db,requireProduct,wrap,credits,generateAgent,fetchImpl,salesStore});
+ registerGrowthCycle(app,{wrap,identity,requireProduct,env,fetcher:fetchImpl});
  registerMetaCustomer(app,{json,env,adminDb,identity,requireProduct,wrap,fetchImpl});
  async function testBillingUser(req){
   const u=await identity(req);if(!testBillingAllowed(env,u)||!adminDb||!testPayments?.ready)throw fault(503,'Deze proefroute is nog niet geactiveerd.');return u;
