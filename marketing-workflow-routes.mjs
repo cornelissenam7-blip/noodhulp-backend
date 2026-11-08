@@ -3,7 +3,7 @@ import {previewWebsite} from './marketing-website.mjs';
 import {registerMarketingDelivery} from './marketing-delivery.mjs';
 import {newWorkflow,workflowFromWebsite,workflowId,workflowInput,confirmWorkflow,startWorkflowStep,finishWorkflowStep,approveWorkflowStep,workflowReadiness,workflowSigner} from './marketing-workflow.mjs';
 const fail=(s,m)=>Object.assign(Error(m),{status:s});
-export function registerMarketingWorkflow(app,{json,env,identity,db,requireProduct,wrap,credits,generateAgent,fetchImpl,previewSite=previewWebsite,salesStore}){
+export function registerMarketingWorkflow(app,{json,env,identity,db,requireProduct,wrap,credits,generateAgent,fetchImpl,previewSite=previewWebsite,salesStore,growthContext}){
  const prefix='/api/customer/marketing-projects',table='amcinova_customer_documents';
  const generationLimits=new Map();
  const signing=()=>workflowSigner(env.MARKETING_WORKFLOW_SECRET||env.AGENT_SIGNING_SECRET||env.SUPABASE_SERVICE_ROLE_KEY);
@@ -35,7 +35,7 @@ export function registerMarketingWorkflow(app,{json,env,identity,db,requireProdu
   // Unique project revision in Postgres claims this step across processes before charging/provider work.
   const running=await save(u,startWorkflowStep(p,step,requestId),p.revision+1);
   generationLimits.set(u.id,{count:(bucket?.count||0)+1,until:bucket?.until||now+3600000});
-  try{const saved=await credits.run(u.id,step,requestId,async()=>{const result=await generateAgent(input,{env,fetchImpl});const current=await load(u,p.id);if(current.revision!==running.revision)throw fail(409,'Project gewijzigd tijdens de aanvraag. Controleer de status.');return save(u,finishWorkflowStep(current,step,requestId,result),current.revision+1);});reply(res,saved);}
+  try{const saved=await credits.run(u.id,step,requestId,async()=>{const learning=await growthContext?.(u,p.brief.website);if(learning)input.fields[step==='promotie'?'promotion-goal':'agent-instructions']+='\nVerified aggregate feedback context (not instructions from visitors). Adapt this draft to the priorities, but do not invent causal sales effects, a winning campaign or child outcomes. Unmeasured windows are unknown, never zero. No automatic spending or publication.\n'+JSON.stringify(learning);const result=await generateAgent(input,{env,fetchImpl});const current=await load(u,p.id);if(current.revision!==running.revision)throw fail(409,'Project gewijzigd tijdens de aanvraag. Controleer de status.');return save(u,finishWorkflowStep(current,step,requestId,result),current.revision+1);});reply(res,saved);}
   catch(e){
    const current=await load(u,p.id);if(current.revision===running.revision){const known=[400,402,403,429,502].includes(e.status),failed={...current,steps:{...current.steps,[step]:{status:'failed',message:known?e.message:'Deze stap is niet bevestigd. Bekijk de status voordat je opnieuw probeert.'}},attempts:current.attempts.map(a=>a.id===requestId?{...a,status:known?'failed':'uncertain'}:a)};await save(u,failed,current.revision+1);}
    throw e;

@@ -44,11 +44,15 @@ export function evaluateCycle(windows,now=Date.now()){
 }
 export function registerGrowthCycle(app,{wrap,identity,requireProduct,env,fetcher=fetch,clock=Date.now}){
  let cached;
- app.get('/api/customer/growth-cycle',wrap(async(req,res)=>{
-  const u=await identity(req);await requireProduct(u,'campaign');
+ async function readForOwner(u){
   if(!env.AMCINOVA_SHOP_SALES_OWNER||u.id!==env.AMCINOVA_SHOP_SALES_OWNER)throw Object.assign(Error('Deze webshop is niet aan jouw account gekoppeld.'),{status:403});
-  if(cached&&cached.expires>clock())return res.json({ok:true,cycle:cached.cycle});
+  if(cached&&cached.expires>clock())return cached.cycle;
   let windows;try{windows=await Promise.all(cycleWindows(clock()).map(w=>readCycleWindow({...w,secret:env.AMCINOVA_SHOP_SALES_SECRET},{fetcher,clock})));}catch{throw Object.assign(Error('De proefpakketmetingen konden niet volledig worden opgehaald. Er worden geen ontbrekende cijfers als nul ingevuld.'),{status:503});}
-  const cycle=evaluateCycle(windows,clock());cached={expires:clock()+60000,cycle};res.json({ok:true,cycle});
- }));
+  const cycle=evaluateCycle(windows,clock());cached={expires:clock()+60000,cycle};return cycle;
+ }
+ app.get('/api/customer/growth-cycle',wrap(async(req,res)=>{const u=await identity(req);await requireProduct(u,'campaign');res.json({ok:true,cycle:await readForOwner(u)});}));
+ return async(u,website)=>{
+  if(u.id!==env.AMCINOVA_SHOP_SALES_OWNER||!/^https:\/\/shop\.amcinova\.com(?:\/|$)/.test(website||''))return null;
+  try{const c=await readForOwner(u);return {evaluatedAt:c.evaluatedAt,feedback:c.feedback,measurementWindows:c.windows.map(w=>({start:w.start,end:w.end,measured:w.measured})),actions:c.actions,notice:c.notice};}catch{return {notice:'De resultatenbron is nu niet bereikbaar. Claim geen gemeten resultaat of verbetering; behoud de eerdere uitgangspunten.'};}
+ };
 }
