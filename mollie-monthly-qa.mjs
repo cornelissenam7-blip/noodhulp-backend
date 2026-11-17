@@ -39,6 +39,25 @@ let state;
 let busy = false;
 const subscriptionPath = () => '/customers/' + state.customerId + '/subscriptions';
 const subscriptionUrl = () => subscriptionPath() + '/' + state.subscriptionId;
+async function restoreScheduledRun() {
+ if (state?.subscriptionId) return true;
+ const result = await mollie('/subscriptions?limit=250');
+ const matches = (result._embedded?.subscriptions || []).filter(s =>
+  s.mode === 'test' && s.startDate === '2026-11-18' &&
+  s.amount?.currency === 'EUR' && s.amount?.value === '22.99' &&
+  s.metadata?.source === 'amcinova-offertetool-monthly' &&
+  s.metadata?.userId === 'offertetool-isolated-qa' &&
+  typeof s.metadata?.orderId === 'string');
+ if (matches.length !== 1) return false;
+ const [subscription] = matches;
+ state = {
+  id: subscription.metadata.orderId, mode: 'test', userId: subscription.metadata.userId,
+  customerId: verifiedId(subscription.customerId, 'cst'),
+  subscriptionId: verifiedId(subscription.id, 'sub'),
+  initialPaidThrough: subscription.startDate, paidThrough: subscription.startDate,
+ };
+ return true;
+}
 const loadTestPayment = async id => {
  const payment = await mollie('/payments/' + verifiedId(id, 'tr'));
  if (payment.mode !== 'test') throw new Error('Expected a Mollie test payment.');
@@ -51,6 +70,7 @@ const validCheckout = link => {
 };
 
 async function start() {
+ if (await restoreScheduledRun()) throw new Error('The scheduled QA run already exists.');
  state ??= { id: randomUUID(), userId: 'offertetool-isolated-qa', mode: 'test', consentAt: new Date().toISOString() };
  if (!state.customerId) {
   const customer = await mollie('/customers', 'POST', { name: 'Offertetool maandincasso QA' }, 'customer');
@@ -90,6 +110,7 @@ async function status() {
  if (subscription.mode !== 'test' || subscription.id !== state.subscriptionId) throw new Error('Unexpected subscription.');
  const payments = await mollie(subscriptionUrl() + '/payments');
  const candidates = (payments._embedded?.payments || []).filter(p => p.mode === 'test' && p.subscriptionId === state.subscriptionId);
+ for (const payment of candidates) recordRenewal(payment);
  const awaiting = candidates.find(p => p._links?.changePaymentState?.href && ['open', 'pending'].includes(p.status));
  return {
   subscriptionStatus: subscription.status,
@@ -101,22 +122,25 @@ async function status() {
  };
 }
 
-async function callback(req) {
- let body = '';
- for await (const part of req) {
-  body += part;
-  if (body.length > 2048) throw new Error('Unexpected webhook body.');
- }
- if (!state?.subscriptionId) return;
- const id = new URLSearchParams(body).get('id');
- if (!id?.startsWith('tr_')) return;
- const payment = await loadTestPayment(id);
+function recordRenewal(payment) {
  if (!verifiedMonthlyRenewal(state, payment)) return;
  const through = nextMonthlyCharge(payment.paidAt);
  if (through > state.paidThrough) {
   state.paidThrough = through;
   state.renewal = { amount: payment.amount.value, paidAt: payment.paidAt };
  }
+}
+
+async function callback(req) {
+ let body = '';
+ for await (const part of req) {
+  body += part;
+  if (body.length > 2048) throw new Error('Unexpected webhook body.');
+ }
+ const id = new URLSearchParams(body).get('id');
+ if (!/^tr_[A-Za-z0-9]+$/.test(id || '') || !await restoreScheduledRun()) return;
+ const payment = await loadTestPayment(id);
+ recordRenewal(payment);
 }
 
 http.createServer(async (req, res) => {
@@ -133,6 +157,7 @@ http.createServer(async (req, res) => {
  busy = true;
  try {
   if (req.method === 'POST' && req.url === '/start') return reply(res, 200, await start());
+  if (!state?.subscriptionId) await restoreScheduledRun();
   if (!state) return reply(res, 409, { error: 'Start the QA run first.' });
   if (req.method === 'POST' && req.url === '/schedule') return reply(res, 200, await schedule());
   if (!state.subscriptionId) return reply(res, 409, { error: 'Schedule the test subscription first.' });
