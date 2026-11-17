@@ -40,3 +40,32 @@ test('Beheer removal requires admin and targets one selected quote ID',async()=>
   assert.equal((await fetch(root+owner,options)).status,409);
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
+test('Beheer private PDF archive preserves original bytes and rejects a different PDF for the same number',async()=>{
+ const app=express();let stored;
+ const value=data=>({ok:true,status:200,json:async()=>data});
+ registerQuoteRoutes(app,{json:express.json,env:{ADMIN_KEY:'test-only',SUPABASE_URL:'https://test.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-only'},fetchImpl:async(url,options)=>{
+  assert.match(url,/amcinova_invoice_pdf_archive/);
+  if(options.method==='POST'){stored={id:owner,...JSON.parse(options.body)};return value([stored]);}
+  if(url.includes('pdf_base64'))return value(stored?[stored]:[]);
+  if(!stored)return value([]);
+  const {pdf_base64,...meta}=stored;return value([meta]);
+ }});
+ const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ try{
+  const url='http://127.0.0.1:'+server.address().port+'/api/agent/quotes/invoice-pdfs';
+  const headers={'x-admin-key':'test-only','Content-Type':'application/json'};
+  const pdf=Buffer.from('%PDF-1.7\noriginal\n%%EOF').toString('base64');
+  const post=(pdf,auth=headers)=>fetch(url,{method:'POST',headers:auth,body:JSON.stringify({number:'QA-1',filename:'Factuur.pdf',pdf})});
+  assert.equal((await fetch(url)).status,401);
+  assert.equal((await fetch(url+'/'+owner)).status,401);
+  assert.equal((await post(pdf,{'Content-Type':'application/json'})).status,401);
+  assert.equal((await post('not-a-PDF')).status,400);
+  assert.equal((await post(pdf)).status,201);
+  assert.equal((await post(pdf)).status,200);
+  assert.equal((await post(Buffer.from('%PDF-1.7\nother\n%%EOF').toString('base64'))).status,409);
+  const listed=await (await fetch(url,{headers})).json();
+  assert.ok(!Object.hasOwn(listed.invoices[0],'pdf_base64'));
+  const opened=await (await fetch(url+'/'+owner,{headers})).json();
+  assert.equal(opened.invoice.pdf_base64,pdf);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});

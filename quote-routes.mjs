@@ -1,7 +1,7 @@
 import {proposeDrawing} from './drawing-ai.mjs';
 import {proposeQuote} from './quote-ai.mjs';
 import {registerAgentRoutes} from './agent-ai.mjs';
-import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
+import {createHash, createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const kinds=['Keukenrenovatie','Schilderwerk','Stukadoorswerk','Timmerwerk','Overige werkzaamheden'];
@@ -96,6 +96,39 @@ export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   }));
   app.get(prefix+'/customer',handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?product_code=eq.offertetool&payload->numberReservation=is.null&select=id,user_id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=100&offset=${offset}`,{table:'amcinova_customer_documents'});res.json({ok:true,documents:data,nextOffset:data.length===100?offset+100:null});}));
   app.get(prefix,handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?select=id,lead_id,revision,quote_number,customer_name,company_name,total_cents,updated_at&order=updated_at.desc,id.asc&limit=100&offset=${offset}`);res.json({ok:true,quotes:data,nextOffset:data.length===100?offset+100:null})}));
+  const archive='amcinova_invoice_pdf_archive';
+  const archiveFields='id,invoice_number,filename,sha256,created_at';
+  app.get(prefix+'/invoice-pdfs',handle(async(req,res)=>{
+    requireAdmin(req);
+    const invoices=await db('?select='+archiveFields+'&order=created_at.desc,id.asc&limit=100',{table:archive});
+    res.json({ok:true,invoices});
+  }));
+  app.post(prefix+'/invoice-pdfs',json({limit:'2800kb'}),handle(async(req,res)=>{
+    requireAdmin(req);
+    const {number,filename,pdf}=req.body||{};
+    if(typeof number!=='string'||!/^[A-Za-z0-9][A-Za-z0-9/._-]{0,59}$/.test(number)||
+      typeof filename!=='string'||filename.length>180||!/^([^/\\\x00-\x1f]+)\.pdf$/i.test(filename)||
+      typeof pdf!=='string'||pdf.length>2796204)throw fault(400,'Vul een factuurnummer in en kies een PDF van maximaal 2 MB.');
+    const bytes=Buffer.from(pdf,'base64');
+    if(bytes.length>2097152||bytes.toString('base64')!==pdf||!bytes.subarray(0,5).equals(Buffer.from('%PDF-'))||
+      !bytes.subarray(-2048).includes(Buffer.from('%%EOF')))throw fault(400,'Het bestand is geen leesbare PDF.');
+    const sha256=createHash('sha256').update(bytes).digest('hex');
+    const existing=(await db('?invoice_number=eq.'+encodeURIComponent(number)+'&select='+archiveFields+'&limit=1',{table:archive}))[0];
+    if(existing){
+      if(existing.sha256!==sha256)throw fault(409,'Dit factuurnummer is al opgeslagen met een andere PDF.');
+      return res.json({ok:true,invoice:existing});
+    }
+    const [saved]=await db('',{method:'POST',table:archive,body:{invoice_number:number,filename,sha256,pdf_base64:pdf}});
+    if(!saved||saved.sha256!==sha256)throw fault(503,'Opslag van de PDF kon niet worden bevestigd.');
+    res.status(201).json({ok:true,invoice:{id:saved.id,invoice_number:saved.invoice_number,filename:saved.filename,sha256:saved.sha256,created_at:saved.created_at}});
+  }));
+  app.get(prefix+'/invoice-pdfs/:id',handle(async(req,res)=>{
+    requireAdmin(req);
+    if(!uuid.test(req.params.id))throw fault(400,'Ongeldig factuurbestand.');
+    const [invoice]=await db('?id=eq.'+req.params.id+'&select='+archiveFields+',pdf_base64&limit=1',{table:archive});
+    if(!invoice)throw fault(404,'Factuur-PDF niet gevonden.');
+    res.json({ok:true,invoice});
+  }));
   app.get(prefix+'/:id',handle(async(req,res)=>{if(!uuid.test(req.params.id))throw fault(400,'Ongeldig offerte-ID.');if(!admin(req))grant(req,req.params.id);const row=(await db(`?id=eq.${req.params.id}&select=*`))[0];if(!row)throw fault(404,'Offerte niet gevonden.');res.json({ok:true,quote:row})}));
   app.delete(prefix+'/customer/:id',handle(async(req,res)=>{
     requireAdmin(req);
