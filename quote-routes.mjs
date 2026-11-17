@@ -97,7 +97,14 @@ export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   app.get(prefix+'/customer',handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?product_code=eq.offertetool&payload->numberReservation=is.null&select=id,user_id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=100&offset=${offset}`,{table:'amcinova_customer_documents'});res.json({ok:true,documents:data,nextOffset:data.length===100?offset+100:null});}));
   app.get(prefix,handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?select=id,lead_id,revision,quote_number,customer_name,company_name,total_cents,updated_at&order=updated_at.desc,id.asc&limit=100&offset=${offset}`);res.json({ok:true,quotes:data,nextOffset:data.length===100?offset+100:null})}));
   const archive='amcinova_invoice_pdf_archive';
-  const archiveFields='id,invoice_number,filename,sha256,created_at';
+  const archiveFields='id,invoice_number,filename,sha256,created_at,document_id';
+  app.delete(prefix+'/invoice-pdfs/:id/test-invoice',handle(async(req,res)=>{
+    requireAdmin(req);
+    if(!uuid.test(req.params.id))throw fault(400,'Ongeldig factuurbestand.');
+    const removed=await db('',{table:'rpc/amcinova_delete_test_invoice',method:'POST',body:{p_archive_id:req.params.id}});
+    if(removed!==true)throw fault(409,'Dit dossier kan niet als één gekoppelde testfactuur worden verwijderd.');
+    res.json({ok:true});
+  }));
   app.get(prefix+'/invoice-pdfs',handle(async(req,res)=>{
     requireAdmin(req);
     const invoices=await db('?select='+archiveFields+'&order=created_at.desc,id.asc&limit=100',{table:archive});
