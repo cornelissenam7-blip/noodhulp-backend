@@ -339,7 +339,7 @@ registerKrnnContentReport(app,{adminAccess:hasAdminAccess});
 registerConsultationRoutes(app,{json:express.json,db:supabaseRequest,adminAccess:hasAdminAccess});
 registerConsultationChat(app,{json:express.json});
 registerQuoteRoutes(app, { json: express.json });
-registerCustomerRoutes(app, { json: express.json, adminAccess:hasAdminAccess, adminDb:supabaseRequest, testPayments:amcinovaTestPayments });
+registerCustomerRoutes(app, { json: express.json, form: express.urlencoded, adminAccess:hasAdminAccess, adminDb:supabaseRequest, testPayments:amcinovaTestPayments });
 registerWorkbookRoutes(app, { json:express.json, hasAdminAccess:req=>!req.query?.key&&hasAdminAccess(req), mailTransport:createWorkbookRelayTransport() || createWorkbookSmtpTransport() });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // nodig omdat Mollie x-www-form-urlencoded kan posten
