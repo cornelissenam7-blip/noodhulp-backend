@@ -22,3 +22,21 @@ test('Beheer tablet list requires admin and exposes metadata only',async()=>{
   const response=await fetch(url,{headers:{'x-admin-key':'test-only'}});assert.equal(response.status,200);const data=await response.json();assert.equal(data.documents[0].project_id,project);assert.equal(data.nextOffset,null);assert.equal(calls,1);
  }finally{await new Promise(r=>server.close(r));}
 });
+test('Beheer removal requires admin and targets one selected quote ID',async()=>{
+ const app=express(),calls=[];
+ registerQuoteRoutes(app,{json:express.json,env:{ADMIN_KEY:'test-only',SUPABASE_URL:'https://test.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-only'},fetchImpl:async(url,options)=>{
+  calls.push({url,method:options.method,body:JSON.parse(options.body)});
+  return {ok:true,status:200,json:async()=>calls.length===1?2:0};
+ }});
+ const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+ try{
+  const root='http://127.0.0.1:'+server.address().port+'/api/agent/quotes/customer/';
+  const options={method:'DELETE',headers:{'x-admin-key':'test-only'}};
+  assert.equal((await fetch(root+owner,{method:'DELETE'})).status,401);
+  assert.equal((await fetch(root+'bad-id',options)).status,400);
+  assert.equal(calls.length,0);
+  assert.deepEqual(await (await fetch(root+owner,options)).json(),{ok:true,deleted:2});
+  assert.deepEqual(calls[0],{url:'https://test.invalid/rest/v1/rpc/amcinova_delete_online_quote',method:'POST',body:{p_latest_id:owner}});
+  assert.equal((await fetch(root+owner,options)).status,409);
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});

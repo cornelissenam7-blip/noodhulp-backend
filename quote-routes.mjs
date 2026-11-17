@@ -97,6 +97,13 @@ export function registerQuoteRoutes(app,{json,env=process.env,fetchImpl=fetch,no
   app.get(prefix+'/customer',handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?product_code=eq.offertetool&payload->numberReservation=is.null&select=id,user_id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=100&offset=${offset}`,{table:'amcinova_customer_documents'});res.json({ok:true,documents:data,nextOffset:data.length===100?offset+100:null});}));
   app.get(prefix,handle(async(req,res)=>{requireAdmin(req);const offset=Number(req.query.offset||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const data=await db(`?select=id,lead_id,revision,quote_number,customer_name,company_name,total_cents,updated_at&order=updated_at.desc,id.asc&limit=100&offset=${offset}`);res.json({ok:true,quotes:data,nextOffset:data.length===100?offset+100:null})}));
   app.get(prefix+'/:id',handle(async(req,res)=>{if(!uuid.test(req.params.id))throw fault(400,'Ongeldig offerte-ID.');if(!admin(req))grant(req,req.params.id);const row=(await db(`?id=eq.${req.params.id}&select=*`))[0];if(!row)throw fault(404,'Offerte niet gevonden.');res.json({ok:true,quote:row})}));
+  app.delete(prefix+'/customer/:id',handle(async(req,res)=>{
+    requireAdmin(req);
+    if(!uuid.test(req.params.id))throw fault(400,'Ongeldig offerte-ID.');
+    const deleted=await db('',{table:'rpc/amcinova_delete_online_quote',method:'POST',body:{p_latest_id:req.params.id}});
+    if(!Number.isSafeInteger(deleted)||deleted<1)throw fault(409,'Geen offerte verwijderd. Controleer of dit de nieuwste versie is en of het dossier een factuur bevat.');
+    res.json({ok:true,deleted});
+  }));
   app.put(prefix+'/:id',json({limit:'1600kb'}),handle(async(req,res)=>{
     const id=req.params.id;if(!uuid.test(id))throw fault(400,'Ongeldig offerte-ID.');const scope=grant(req,id),revision=req.body.revision;if(!Number.isSafeInteger(revision)||revision<0||revision>1000000)throw fault(400,'Ongeldige offerteversie.');
     const {snapshot,totalCents}=validateSnapshot(req.body.snapshot);const row={lead_id:scope.leadId,revision:revision+1,quote_number:snapshot.values.quoteNumber||'',customer_name:snapshot.values.customer||'',company_name:snapshot.brand.name||snapshot.values.company||'',total_cents:totalCents,snapshot,updated_at:new Date(now()).toISOString()};
