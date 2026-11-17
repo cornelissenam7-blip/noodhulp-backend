@@ -1,4 +1,5 @@
 import {saveNumberedQuote} from './quote-numbering.mjs';
+import {createHash} from 'node:crypto';
 import {registerCustomerMaterials} from './customer-materials.mjs';
 import {registerMarketingWorkflow} from './marketing-workflow-routes.mjs';
 import {registerGrowthCycle} from './growth-cycle.mjs';
@@ -244,4 +245,37 @@ export function registerCustomerRoutes(app,{json,form,env=process.env,fetchImpl=
  app.get('/api/customer/documents',wrap(async(req,res)=>{const u=await identity(req),product=req.query.product;if(!products.has(product))throw fault(400,'Kies een geldig product.');const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)throw fault(400,'Ongeldige pagina.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&product_code=eq.${product}&payload->tracking=is.null&payload->publication=is.null&payload->materialLibrary=is.null&select=id,project_id,revision,name,created_at&order=created_at.desc,id.asc&limit=50&offset=${offset}`);res.json({ok:true,documents:rows,nextOffset:rows.length===50?offset+50:null});}));
  app.get('/api/customer/documents/:id',wrap(async(req,res)=>{const u=await identity(req);if(!uuid.test(req.params.id))throw fault(400,'Ongeldig document.');const rows=await db(u,'amcinova_customer_documents',`?user_id=eq.${u.id}&id=eq.${req.params.id}&select=*&limit=1`);if(!rows.length)throw fault(404,'Document niet gevonden.');res.json({ok:true,document:rows[0]});}));
  app.post('/api/customer/documents',json({limit:'1800kb'}),wrap(async(req,res)=>{const u=await identity(req),row=customerDocument(req.body,u.id);await requireProduct(u,row.product_code);const document=await saveNumberedQuote(row,u,db);res.status(201).json({ok:true,document});}));
+ app.post('/api/customer/documents/:id/invoice-pdf',json({limit:'2800kb'}),wrap(async(req,res)=>{
+  const u=await identity(req);
+  if(!uuid.test(req.params.id))throw fault(400,'Ongeldig document.');
+  await requireProduct(u,'offertetool');
+  const owner='?user_id=eq.'+u.id+'&product_code=eq.offertetool';
+  const [doc]=await db(u,'amcinova_customer_documents',owner+'&id=eq.'+req.params.id+'&select=id,project_id,payload&limit=1');
+  if(!doc)throw fault(404,'Factuur niet gevonden.');
+  const values=doc.payload?.values;
+  let storedType=values?.quoteDocumentType;
+  try{storedType||=JSON.parse(values?.drawingCorners||'{}').amcDocument?.type;}catch{}
+  const number=values?.quoteNumber?.trim();
+  if(storedType!=='invoice'||!number||!/^[A-Za-z0-9][A-Za-z0-9 /._-]{0,59}$/.test(number))throw fault(400,'Geef de factuur een geldig factuurnummer.');
+  const table='amcinova_invoice_pdf_archive';
+  const query='?invoice_number=eq.'+encodeURIComponent(number)+'&select=document_id,sha256&limit=1';
+  const [archived]=await adminDb(table,{method:'GET',query});
+  if(archived){
+   const [original]=archived.document_id?await db(u,'amcinova_customer_documents',owner+'&id=eq.'+archived.document_id+'&select=project_id&limit=1'):[];
+   if(original?.project_id!==doc.project_id)throw fault(409,'Dit factuurnummer is al in gebruik. Het origineel is behouden.');
+   return res.json({ok:true,alreadyArchived:true,sha256:archived.sha256});
+  }
+  const {filename,pdf}=req.body||{};
+  if(typeof filename!=='string'||filename.length>180||!/^([^/\\\x00-\x1f]+)\.pdf$/i.test(filename)||
+    typeof pdf!=='string'||pdf.length>2796204)throw fault(400,'De factuur-PDF mag maximaal 2 MB zijn.');
+  const bytes=Buffer.from(pdf,'base64');
+  if(bytes.length>2097152||bytes.toString('base64')!==pdf||!bytes.subarray(0,5).equals(Buffer.from('%PDF-'))||
+     !bytes.subarray(-2048).includes(Buffer.from('%%EOF')))throw fault(400,'Ongeldige factuur-PDF.');
+  const sha256=createHash('sha256').update(bytes).digest('hex');
+  await adminDb(table,{method:'POST',query:'?on_conflict=invoice_number',prefer:'resolution=ignore-duplicates,return=representation',
+   body:{invoice_number:number,filename,pdf_base64:pdf,sha256,document_id:doc.id}});
+  const [saved]=await adminDb(table,{method:'GET',query});
+  if(saved?.document_id!==doc.id||saved?.sha256!==sha256)throw fault(409,'De originele PDF kon niet onder dit factuurnummer worden bevestigd.');
+  res.status(201).json({ok:true,sha256});
+ }));
 }
