@@ -14,6 +14,7 @@ import {proposeDrawing} from './drawing-ai.mjs';
 import {randomUUID} from 'node:crypto';
 import {creditClient} from './ai-credits.mjs';
 import {registerOffertetoolCheckout,offertetoolPrice} from './offertetool-checkout.mjs';
+import {registerOffertetoolMonthly} from './offertetool-monthly-routes.mjs';
 import {commercialPolicy} from './commercial-readiness.mjs';
 import {testOrder} from './test-order-model.mjs';
 import {activateTestAccess} from './test-access.mjs';
@@ -203,7 +204,8 @@ export function registerCustomerRoutes(app,{json,form,env=process.env,fetchImpl=
   }catch{res.status(503).json({ok:false,error:'AI-tegoeden konden niet worden geladen.'});}
  });
  const checkout=registerOffertetoolCheckout(app,{json,form,env,identity,wrap,adminDb,fetchImpl});
- app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:enabled()&&checkout.liveEnabled,offertetoolPrice,aiCreditsEnabled:credits.enabled});});
+ const monthly=registerOffertetoolMonthly(app,{json,form,env,identity,db,wrap,adminDb,fetchImpl});
+ app.get('/api/customer/config',(_req,res)=>{res.set('Cache-Control','no-store');res.json({ok:true,enabled:enabled(),...(enabled()?{authUrl:base,publicKey:key}:{}),checkoutEnabled:enabled()&&checkout.liveEnabled,offertetoolPrice,offertetoolMonthlyEnabled:enabled()&&monthly.liveEnabled,offertetoolMonthlyTestEnabled:enabled()&&monthly.testEnabled,aiCreditsEnabled:credits.enabled});});
  app.get('/api/customer/tester-application',wrap(async(req,res)=>{const u=await identity(req);const rows=await db(u,'amcinova_customer_profiles','?user_id=eq.'+u.id+'&select=tester_application');res.json({ok:true,application:rows[0]?.tester_application||null});}));
  app.post('/api/customer/tester-application',json({limit:'10kb'}),wrap(async(req,res)=>{const u=await identity(req),application=testerApplication(req.body,u.email);await db(u,'amcinova_customer_profiles','?on_conflict=user_id',{user_id:u.id,tester_application:application},true);res.json({ok:true,application});}));
  app.get('/api/admin/tester-applications',async(req,res)=>{res.set('Cache-Control','no-store');if(!adminAccess(req))return res.status(401).json({ok:false,error:'Meld je aan als beheerder.'});try{const offset=Number(req.query.offset||0);if(!Number.isSafeInteger(offset)||offset<0||offset>100000)return res.status(400).json({ok:false,error:'Ongeldige pagina.'});const rows=await adminDb('amcinova_customer_profiles',{method:'GET',query:'?select=user_id,tester_application&tester_application=not.is.null&order=user_id&limit=50&offset='+offset});res.json({ok:true,applications:rows,nextOffset:rows.length===50?offset+50:null});}catch{res.status(503).json({ok:false,error:'Aanmeldingen konden niet worden geladen.'});}});
